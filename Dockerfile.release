@@ -1,6 +1,6 @@
 # Production Runtime Stage using runner-compiled binaries
 FROM alpine:3.21
-RUN apk add --no-cache ca-certificates wget libc6-compat gcompat
+RUN apk add --no-cache ca-certificates wget
 
 ARG ARCH
 COPY dist/limbo-linux-${ARCH} /usr/local/bin/limbo

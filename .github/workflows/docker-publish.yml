@@ -73,17 +73,21 @@ jobs:
           go-version: '1.26.3'
           cache: true
 
+      - name: Install musl-tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y musl-tools
+
       - name: Install Windows cross-compiler (amd64 runner only)
         if: matrix.platform.arch == 'amd64'
         run: |
-          sudo apt-get update
           sudo apt-get install -y gcc-mingw-w64-x86-64
 
       - name: Build native Linux Go binary
         run: |
           mkdir -p dist
-          # Build native Linux binary natively on respective architecture
-          CGO_ENABLED=1 GOOS=linux GOARCH=${{ matrix.platform.arch }} go build -o dist/limbo-linux-${{ matrix.platform.arch }} -ldflags="-s -w" .
+          # Build static Linux binary using musl-gcc
+          CGO_ENABLED=1 CC=musl-gcc GOOS=linux GOARCH=${{ matrix.platform.arch }} go build -o dist/limbo-linux-${{ matrix.platform.arch }} -ldflags="-s -w -linkmode external -extldflags '-static'" .
 
       - name: Build Windows binary (amd64 runner only)
         if: matrix.platform.arch == 'amd64'
