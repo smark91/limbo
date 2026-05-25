@@ -11,17 +11,21 @@ env:
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
-  build-and-push:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      packages: write
+  build:
+    runs-on: ${{ matrix.platform.runner }}
+    strategy:
+      matrix:
+        platform:
+          - runner: ubuntu-latest
+            arch: amd64
+          - runner: ubuntu-24.04-arm64
+            arch: arm64
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
 
-      - name: Extract tag name and pre-release status
+      - name: Extract tag name
         id: get_version
         run: |
           # Extract version from tag (e.g., refs/tags/v1.0.0 -> 1.0.0)
@@ -29,7 +33,85 @@ jobs:
           VERSION_NO_V=${VERSION#v}
           echo "version=${VERSION_NO_V}" >> $GITHUB_OUTPUT
 
-          # Check if tag is a pre-release (contains a hyphen, e.g., v1.0.0-beta)
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: '1.26.3'
+          cache: true
+
+      - name: Install Windows cross-compiler (amd64 runner only)
+        if: matrix.platform.arch == 'amd64'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-mingw-w64-x86-64
+
+      - name: Build native Linux Go binary
+        run: |
+          mkdir -p dist
+          # Build native Linux binary natively on respective architecture
+          CGO_ENABLED=1 GOOS=linux GOARCH=${{ matrix.platform.arch }} go build -o dist/limbo-linux-${{ matrix.platform.arch }} -ldflags="-s -w" .
+
+      - name: Build Windows binary (amd64 runner only)
+        if: matrix.platform.arch == 'amd64'
+        run: |
+          CGO_ENABLED=1 GOOS=windows GOARCH=amd64 CC=x86_64-w64-mingw32-gcc go build -o dist/limbo-windows-amd64.exe -ldflags="-s -w" .
+
+      - name: Upload Binaries as Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: binaries-${{ matrix.platform.arch }}
+          path: dist/*
+          retention-days: 1
+
+      - name: Log in to the Container registry
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+
+      - name: Build and push Docker image by architecture
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          push: true
+          platforms: linux/${{ matrix.platform.arch }}
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.get_version.outputs.version }}-${{ matrix.platform.arch }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            VERSION=${{ steps.get_version.outputs.version }}
+            REVISION=${{ github.sha }}
+          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:buildcache-${{ matrix.platform.arch }}
+          cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:buildcache-${{ matrix.platform.arch }},mode=max
+
+  merge-manifests:
+    runs-on: ubuntu-latest
+    needs: build
+    permissions:
+      contents: write
+      packages: write
+
+    steps:
+      - name: Extract tag name and pre-release status
+        id: get_version
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/}
+          VERSION_NO_V=${VERSION#v}
+          echo "version=${VERSION_NO_V}" >> $GITHUB_OUTPUT
+          
           if [[ "$VERSION" == *-* ]]; then
             echo "prerelease=true" >> $GITHUB_OUTPUT
           else
@@ -43,56 +125,58 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
-
-      - name: Set up Go
-        uses: actions/setup-go@v6
-        with:
-          go-version: '1.26.3'
-          cache: true
-
-      - name: Install cross-compilers
+      - name: Create and push manifest list
         run: |
-          sudo apt-get update
-          sudo apt-get install -y gcc-aarch64-linux-gnu gcc-mingw-w64-x86-64
+          TAG_BASE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}"
+          VERSION_TAG="${{ steps.get_version.outputs.version }}"
+          
+          # Pull the individual arch images
+          docker pull ${TAG_BASE}:${VERSION_TAG}-amd64
+          docker pull ${TAG_BASE}:${VERSION_TAG}-arm64
+          
+          # Create and push manifest for version tag
+          docker manifest create ${TAG_BASE}:${VERSION_TAG} \
+            ${TAG_BASE}:${VERSION_TAG}-amd64 \
+            ${TAG_BASE}:${VERSION_TAG}-arm64
+          docker manifest push ${TAG_BASE}:${VERSION_TAG}
 
-      - name: Build cross-platform binaries
-        run: |
-          mkdir -p dist
-          # Linux AMD64
-          CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -o dist/limbo-linux-amd64 -ldflags="-s -w" .
-          # Linux ARM64
-          CGO_ENABLED=1 GOOS=linux GOARCH=arm64 CC=aarch64-linux-gnu-gcc go build -o dist/limbo-linux-arm64 -ldflags="-s -w" .
-          # Windows AMD64
-          CGO_ENABLED=1 GOOS=windows GOARCH=amd64 CC=x86_64-w64-mingw32-gcc go build -o dist/limbo-windows-amd64.exe -ldflags="-s -w" .
+          # Handle semver tag aliases (e.g. major, major.minor)
+          if [[ "${VERSION_TAG}" =~ ^[0-9]+\.[0-9]+\.[0-9]+ ]]; then
+            MAJOR_MINOR=$(echo ${VERSION_TAG} | cut -d. -f1-2)
+            MAJOR=$(echo ${VERSION_TAG} | cut -d. -f1)
+            
+            # Create major.minor manifest
+            docker manifest create ${TAG_BASE}:${MAJOR_MINOR} \
+              ${TAG_BASE}:${VERSION_TAG}-amd64 \
+              ${TAG_BASE}:${VERSION_TAG}-arm64
+            docker manifest push ${TAG_BASE}:${MAJOR_MINOR}
+            
+            # Create major manifest
+            docker manifest create ${TAG_BASE}:${MAJOR} \
+              ${TAG_BASE}:${VERSION_TAG}-amd64 \
+              ${TAG_BASE}:${VERSION_TAG}-arm64
+            docker manifest push ${TAG_BASE}:${MAJOR}
+            
+            # Also tag latest if not pre-release
+            if [[ "${{ steps.get_version.outputs.prerelease }}" == "false" ]]; then
+              docker manifest create ${TAG_BASE}:latest \
+                ${TAG_BASE}:${VERSION_TAG}-amd64 \
+                ${TAG_BASE}:${VERSION_TAG}-arm64
+              docker manifest push ${TAG_BASE}:latest
+            fi
+          fi
 
-      - name: Extract metadata (tags, labels) for Docker
-        id: meta
-        uses: docker/metadata-action@v6
+      - name: Download amd64 artifacts
+        uses: actions/download-artifact@v4
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=semver,pattern={{major}}
+          name: binaries-amd64
+          path: dist
 
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v7
+      - name: Download arm64 artifacts
+        uses: actions/download-artifact@v4
         with:
-          context: .
-          push: true
-          platforms: linux/amd64,linux/arm64
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          build-args: |
-            VERSION=${{ steps.get_version.outputs.version }}
-            REVISION=${{ github.sha }}
-          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:buildcache
-          cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:buildcache,mode=max
+          name: binaries-arm64
+          path: dist
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v3
