@@ -1248,6 +1248,12 @@ body::before {
 }
 
 /* Month navigation and texts */
+.flatpickr-calendar .flatpickr-months,
+.flatpickr-calendar .flatpickr-month,
+.flatpickr-calendar .flatpickr-weekdays {
+    background: transparent !important;
+}
+
 .flatpickr-calendar .flatpickr-months .flatpickr-month {
     color: var(--text-primary) !important;
     fill: var(--text-primary) !important;
@@ -1257,11 +1263,13 @@ body::before {
 .flatpickr-calendar .flatpickr-months .flatpickr-next-month {
     color: var(--text-secondary) !important;
     fill: var(--text-secondary) !important;
+    background: transparent !important;
 }
 .flatpickr-calendar .flatpickr-months .flatpickr-prev-month:hover,
 .flatpickr-calendar .flatpickr-months .flatpickr-next-month:hover {
     color: var(--text-primary) !important;
     fill: var(--text-primary) !important;
+    background: rgba(255, 255, 255, 0.08) !important;
 }
 
 .flatpickr-calendar .flatpickr-current-month .numInputWrapper span.arrowUp::after {
@@ -1272,14 +1280,19 @@ body::before {
 }
 
 .flatpickr-calendar .flatpickr-current-month .flatpickr-monthDropdown-months {
-    background: var(--bg-secondary) !important;
+    background: transparent !important;
     color: var(--text-primary) !important;
+    font-weight: 600 !important;
+}
+.flatpickr-calendar .flatpickr-current-month .flatpickr-monthDropdown-months:hover {
+    background: rgba(255, 255, 255, 0.08) !important;
 }
 
 /* Weekdays */
 .flatpickr-calendar .flatpickr-weekday {
     color: var(--text-secondary) !important;
     font-weight: 600 !important;
+    background: transparent !important;
 }
 
 /* Days styling */
