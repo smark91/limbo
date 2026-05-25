@@ -12,7 +12,9 @@ stacks/limbo/
 ├── .env                      # Local deployment env configuration
 ├── AGENTS.md                 # Agent instructions (this file)
 └── app/                      # Go source code
-    ├── Dockerfile            # Multi-stage CGO SQLite build
+    ├── Dockerfile            # Multi-stage CGO SQLite build (local dev & testing)
+    ├── Dockerfile.release    # Production runtime image using static host-compiled binaries
+    ├── .dockerignore         # Exclusions for Docker build context
     ├── go.mod                # Module definitions
     ├── go.sum
     ├── main.go               # Entry point (initializes DB, background ticker, HTTP server)

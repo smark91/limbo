@@ -27,7 +27,7 @@ Limbo is a lightweight, self-hosted Go dashboard and background notifier that tr
 - **Database**: SQLite (default, WAL mode optimized) or PostgreSQL
 - **Frontend**: Vanilla JS (SPA), Vanilla CSS (Glassmorphism & animations)
 - **Asset Delivery**: HTML, JS, CSS embedded directly into the Go executable via `//go:embed`
-- **Containerization**: Multi-stage CGO Alpine Dockerfile
+- **Containerization**: Multi-stage CGO Alpine Dockerfile (local development) and lightweight runtime release Dockerfile (packaging static host-compiled binaries for CI/CD)
 
 ---
 
