@@ -51,7 +51,7 @@ func main() {
 	}
 	slog.SetDefault(slog.New(handler))
 
-	slog.Info("🌀 Limbo starting...")
+	slog.Info("🌀 Limbo starting...", slog.String("version", api.Version))
 
 	// Validate configuration
 	if err := cfg.Validate(); err != nil {

@@ -118,6 +118,10 @@ const App = {
                 document.getElementById('last-sync').textContent = `Last sync: ${timeAgo(this.state.lastSync)}`;
             }
 
+            if (this.state.stats.version) {
+                document.getElementById('logo-version').textContent = this.state.stats.version;
+            }
+
             Components.renderStats(this.state.stats, this.state.filters.status);
         } catch (err) {
             console.error('Failed to load stats:', err);

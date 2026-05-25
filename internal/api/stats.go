@@ -12,6 +12,8 @@ import (
 	"gorm.io/gorm"
 )
 
+var Version = "dev"
+
 type statsResponse struct {
 	Pending        int64     `json:"pending"`
 	NotAvailable   int64     `json:"notAvailable"`
@@ -19,6 +21,7 @@ type statsResponse struct {
 	Completed      int64     `json:"completed"`
 	Total          int64     `json:"total"`
 	LastScan       time.Time `json:"lastScan"`
+	Version        string    `json:"version"`
 }
 
 // handleStats returns aggregated triage counters by status.
@@ -58,6 +61,7 @@ func handleStats(db *gorm.DB, scan *scanner.Scanner) http.HandlerFunc {
 		}
 
 		stats.LastScan = scan.LastScanTime()
+		stats.Version = Version
 
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(stats)

@@ -157,6 +157,16 @@ body::before {
     color: var(--text-primary);
 }
 
+.logo-version {
+    font-size: 0.7rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    padding: 2px 6px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 4px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
 .header-right {
     display: flex;
     align-items: center;
