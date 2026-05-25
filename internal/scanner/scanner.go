@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"strings"
 	"sync"
 	"time"
 
@@ -99,9 +100,9 @@ func (s *Scanner) scan(ctx context.Context) {
 
 	slog.InfoContext(ctx, "Fetched approved requests", slog.Int("count", len(requests)))
 
-	// Track seen IDs for reconciliation
+	// Track seen IDs for reconciliation (only for active requests)
 	var currentIDs []int
-	if err := s.db.WithContext(ctx).Model(&database.TriageEntry{}).Pluck("seerr_request_id", &currentIDs).Error; err != nil {
+	if err := s.db.WithContext(ctx).Model(&database.TriageEntry{}).Where("status != ?", database.StatusCompleted).Pluck("seerr_request_id", &currentIDs).Error; err != nil {
 		slog.ErrorContext(ctx, "Error fetching current request IDs from database", slog.Any("error", err))
 		return
 	}
@@ -138,20 +139,58 @@ func (s *Scanner) scan(ctx context.Context) {
 		processed++
 	}
 
-	// Purge stale entries (IDs that weren't seen in the Seerr response)
+	// Reconcile and purge stale entries (IDs that weren't seen in the Seerr response)
 	staleCount := 0
+	completedCount := 0
 	for id, seen := range seenIDs {
 		if !seen {
-			if err := s.db.WithContext(ctx).Where("seerr_request_id = ?", id).Delete(&database.TriageEntry{}).Error; err != nil {
-				slog.ErrorContext(ctx, "Error deleting stale triage entry", slog.Int("requestId", id), slog.Any("error", err))
+			// Query Seerr API to check if it was completed or deleted
+			seerrReq, err := s.seerr.GetRequest(ctx, id)
+			if err != nil {
+				// If the request returns 404, it was deleted in Seerr
+				if strings.Contains(err.Error(), "returned 404") {
+					slog.InfoContext(ctx, "Reconciling missing request: request not found in Seerr, deleting locally", slog.Int("requestId", id))
+					if err := s.db.WithContext(ctx).Where("seerr_request_id = ?", id).Delete(&database.TriageEntry{}).Error; err != nil {
+						slog.ErrorContext(ctx, "Error deleting stale triage entry", slog.Int("requestId", id), slog.Any("error", err))
+					} else {
+						staleCount++
+					}
+				} else {
+					slog.ErrorContext(ctx, "Error fetching missing request from Seerr during reconciliation, skipping", slog.Int("requestId", id), slog.Any("error", err))
+				}
+				continue
+			}
+
+			// If the media status is completed, transition it to COMPLETED in database
+			if seerrReq.Media.Status == 4 || seerrReq.Media.Status == 5 {
+				slog.InfoContext(ctx, "Reconciling missing request: media available in Seerr, marking as completed locally", slog.Int("requestId", id))
+				fulfilledAt := parseTime(seerrReq.UpdatedAt)
+				updates := map[string]interface{}{
+					"status":       database.StatusCompleted,
+					"fulfilled_at": &fulfilledAt,
+				}
+				if err := s.db.WithContext(ctx).Model(&database.TriageEntry{}).Where("seerr_request_id = ?", id).Updates(updates).Error; err != nil {
+					slog.ErrorContext(ctx, "Error updating completed triage entry during reconciliation", slog.Int("requestId", id), slog.Any("error", err))
+				} else {
+					completedCount++
+				}
 			} else {
-				staleCount++
+				// If it was declined or changed status to something not approved, delete it
+				slog.InfoContext(ctx, "Reconciling missing request: request no longer approved in Seerr, deleting locally", slog.Int("requestId", id))
+				if err := s.db.WithContext(ctx).Where("seerr_request_id = ?", id).Delete(&database.TriageEntry{}).Error; err != nil {
+					slog.ErrorContext(ctx, "Error deleting stale triage entry", slog.Int("requestId", id), slog.Any("error", err))
+				} else {
+					staleCount++
+				}
 			}
 		}
 	}
 
 	if staleCount > 0 {
 		slog.InfoContext(ctx, "Purged stale entries", slog.Int("count", staleCount))
+	}
+	if completedCount > 0 {
+		slog.InfoContext(ctx, "Marked missing entries as completed", slog.Int("count", completedCount))
 	}
 
 	s.lastScan = time.Now()
@@ -258,13 +297,44 @@ func (s *Scanner) processRequest(ctx context.Context, req seerr.SeerrRequest) er
 				fulfilledAt := parseTime(req.UpdatedAt)
 				updates["fulfilled_at"] = &fulfilledAt
 			}
-		} else if existing.Status == database.StatusPending && releaseInfo.Date != nil && !releaseInfo.IsReleased() {
-			updates["status"] = database.StatusWaitingRelease
+		} else {
+			// If it was completed, but now it's no longer completed (re-requested/deleted)
+			if existing.Status == database.StatusCompleted {
+				if releaseInfo.Date != nil && !releaseInfo.IsReleased() {
+					updates["status"] = database.StatusWaitingRelease
+				} else {
+					updates["status"] = database.StatusPending
+				}
+				updates["fulfilled_at"] = nil
+				updates["notified_at"] = nil
+			} else if existing.Status == database.StatusPending && releaseInfo.Date != nil && !releaseInfo.IsReleased() {
+				updates["status"] = database.StatusWaitingRelease
+			}
 		}
 
 		if err := s.db.WithContext(ctx).Model(&existing).Updates(updates).Error; err != nil {
 			return fmt.Errorf("updating triage entry: %w", err)
 		}
+
+		// Sync GORM updates map to in-memory existing struct for subsequent logic
+		if status, ok := updates["status"].(string); ok {
+			existing.Status = status
+		}
+		if val, exists := updates["fulfilled_at"]; exists {
+			if fulfilledAt, ok := val.(*time.Time); ok {
+				existing.FulfilledAt = fulfilledAt
+			} else {
+				existing.FulfilledAt = nil
+			}
+		}
+		if val, exists := updates["notified_at"]; exists {
+			if notifiedAt, ok := val.(*time.Time); ok {
+				existing.NotifiedAt = notifiedAt
+			} else {
+				existing.NotifiedAt = nil
+			}
+		}
+
 		entry = existing
 	} else {
 		return fmt.Errorf("querying triage entry: %w", result.Error)
