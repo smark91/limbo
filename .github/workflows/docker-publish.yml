@@ -124,10 +124,12 @@ jobs:
         uses: docker/build-push-action@v7
         with:
           context: .
+          file: Dockerfile.release
           push: true
           tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.get_version.outputs.version }}-${{ matrix.platform.arch }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
+            ARCH=${{ matrix.platform.arch }}
             VERSION=${{ steps.get_version.outputs.version }}
             REVISION=${{ github.sha }}
           cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:buildcache-${{ matrix.platform.arch }}

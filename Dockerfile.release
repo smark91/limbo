@@ -1,0 +1,21 @@
+# Production Runtime Stage using runner-compiled binaries
+FROM alpine:3.21
+RUN apk add --no-cache ca-certificates wget
+
+ARG ARCH
+COPY dist/limbo-linux-${ARCH} /usr/local/bin/limbo
+
+# OpenContainers metadata labels
+ARG VERSION=1.0.0
+ARG REVISION=unknown
+LABEL org.opencontainers.image.title="Limbo" \
+      org.opencontainers.image.description="Seerr - Unfulfilled Request Dashboard & Notifier" \
+      org.opencontainers.image.licenses="AGPL-3.0-only" \
+      org.opencontainers.image.version="${VERSION}" \
+      org.opencontainers.image.revision="${REVISION}" \
+      org.opencontainers.image.source="https://github.com/smark91/limbo"
+
+EXPOSE 3000
+HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
+    CMD wget -qO- http://127.0.0.1:3000/api/health | grep '"status":"ok"' || exit 1
+CMD ["limbo"]
