@@ -116,13 +116,15 @@ jobs:
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=semver,pattern={{major}}
+          labels: |
+            org.opencontainers.image.version=${{ steps.get_version.outputs.version }}
+
 
       - name: Build and push Docker image by architecture
         uses: docker/build-push-action@v7
         with:
           context: .
           push: true
-          platforms: linux/${{ matrix.platform.arch }}
           tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.get_version.outputs.version }}-${{ matrix.platform.arch }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
@@ -177,42 +179,35 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Create and push manifest list
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Create and push multi-arch image
         run: |
           TAG_BASE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}"
           VERSION_TAG="${{ steps.get_version.outputs.version }}"
           
-          # Create and push manifest for version tag
-          docker manifest create ${TAG_BASE}:${VERSION_TAG} \
-            ${TAG_BASE}:${VERSION_TAG}-amd64 \
-            ${TAG_BASE}:${VERSION_TAG}-arm64
-          docker manifest push ${TAG_BASE}:${VERSION_TAG}
-
+          # Build target tags array
+          TAGS=("-t" "${TAG_BASE}:${VERSION_TAG}")
+          
           # Handle semver tag aliases (e.g. major, major.minor)
           if [[ "${VERSION_TAG}" =~ ^[0-9]+\.[0-9]+\.[0-9]+ ]]; then
             MAJOR_MINOR=$(echo ${VERSION_TAG} | cut -d. -f1-2)
             MAJOR=$(echo ${VERSION_TAG} | cut -d. -f1)
             
-            # Create major.minor manifest
-            docker manifest create ${TAG_BASE}:${MAJOR_MINOR} \
-              ${TAG_BASE}:${VERSION_TAG}-amd64 \
-              ${TAG_BASE}:${VERSION_TAG}-arm64
-            docker manifest push ${TAG_BASE}:${MAJOR_MINOR}
-            
-            # Create major manifest
-            docker manifest create ${TAG_BASE}:${MAJOR} \
-              ${TAG_BASE}:${VERSION_TAG}-amd64 \
-              ${TAG_BASE}:${VERSION_TAG}-arm64
-            docker manifest push ${TAG_BASE}:${MAJOR}
+            TAGS+=("-t" "${TAG_BASE}:${MAJOR_MINOR}")
+            TAGS+=("-t" "${TAG_BASE}:${MAJOR}")
             
             # Also tag latest if not pre-release
             if [[ "${{ steps.get_version.outputs.prerelease }}" == "false" ]]; then
-              docker manifest create ${TAG_BASE}:latest \
-                ${TAG_BASE}:${VERSION_TAG}-amd64 \
-                ${TAG_BASE}:${VERSION_TAG}-arm64
-              docker manifest push ${TAG_BASE}:latest
+              TAGS+=("-t" "${TAG_BASE}:latest")
             fi
           fi
+          
+          # Create and push multi-arch image using buildx imagetools
+          docker buildx imagetools create "${TAGS[@]}" \
+            ${TAG_BASE}:${VERSION_TAG}-amd64 \
+            ${TAG_BASE}:${VERSION_TAG}-arm64
 
       - name: Download amd64 artifacts
         uses: actions/download-artifact@v4
