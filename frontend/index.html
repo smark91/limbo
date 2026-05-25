@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Limbo — Unfulfilled Request Dashboard</title>
+    <meta name="description" content="Limbo: Monitor and manage unfulfilled media requests from Seerr with real-time triage, Discord notifications, and Arr integration.">
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <!-- PWA -->
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#0f1117">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="/assets/logo.svg">
+
+    <!-- Flatpickr Datepicker -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/dark.css">
+
+    <!-- Styles -->
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+    <div id="app">
+        <!-- Header -->
+        <header class="header" id="header">
+            <div class="header-left">
+                <div class="logo" id="logo" style="cursor: pointer;" onclick="App.switchView('dashboard')">
+                    <img src="/assets/logo.svg" class="logo-img" alt="Limbo Logo">
+                    <span class="logo-text">LIMBO</span>
+                </div>
+                <nav class="nav-menu">
+                    <button class="nav-link active" id="nav-dashboard" onclick="App.switchView('dashboard')">Dashboard</button>
+                    <button class="nav-link" id="nav-maintenance" onclick="App.switchView('maintenance')">Maintenance</button>
+                </nav>
+            </div>
+            <div class="header-right">
+                <span class="last-sync" id="last-sync">Last sync: —</span>
+                <button class="btn btn-sync" id="btn-sync" title="Trigger sync">
+                    <svg class="icon-sync" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/>
+                    </svg>
+                    <span>Sync</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- Stats Bar -->
+        <section class="stats-bar" id="stats-bar">
+            <!-- Populated by JS -->
+        </section>
+
+        <!-- Filters -->
+        <section class="filter-bar" id="filter-bar">
+            <div class="search-wrapper">
+                <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="#6366F1" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="11" cy="11" r="8"/>
+                    <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                </svg>
+                <input type="text" class="search-input" id="search-input" placeholder="Search requests..." autocomplete="off">
+            </div>
+            <div class="filter-group">
+                <div class="filter-select-wrapper">
+                    <svg class="filter-icon" viewBox="0 0 24 24" fill="none" stroke="#6366F1" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="3" y="3" width="7" height="7"></rect>
+                        <rect x="14" y="3" width="7" height="7"></rect>
+                        <rect x="14" y="14" width="7" height="7"></rect>
+                        <rect x="3" y="14" width="7" height="7"></rect>
+                    </svg>
+                    <select class="filter-select" id="filter-type">
+                        <option value="">All Types</option>
+                        <option value="movie">Movies</option>
+                        <option value="tv">TV Shows</option>
+                    </select>
+                </div>
+                <div class="filter-select-wrapper">
+                    <svg class="filter-icon" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M22 12h-4l-3 9L9 3l-3 9H2"></path>
+                    </svg>
+                    <select class="filter-select" id="filter-status">
+                        <option value="">All Statuses</option>
+                        <option value="PENDING" selected>Pending</option>
+                        <option value="WAITING_RELEASE">Waiting Release</option>
+                        <option value="NOT_AVAILABLE">Unavailable</option>
+                        <option value="COMPLETED">Completed</option>
+                    </select>
+                </div>
+                <div class="filter-select-wrapper">
+                    <svg class="filter-icon" viewBox="0 0 24 24" fill="none" stroke="#EC4899" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M11 5h10"></path>
+                        <path d="M11 9h7"></path>
+                        <path d="M11 13h4"></path>
+                        <path d="M3 17l3 3 3-3"></path>
+                        <path d="M6 18V4"></path>
+                    </svg>
+                    <select class="filter-select" id="filter-sort">
+                        <option value="newest">Newest First</option>
+                        <option value="oldest">Oldest First</option>
+                        <option value="title">Title A-Z</option>
+                        <option value="release">Release Date</option>
+                    </select>
+                </div>
+            </div>
+        </section>
+
+        <!-- Request Cards -->
+        <main class="requests-grid" id="requests-grid">
+            <!-- Populated by JS — skeleton loading shown initially -->
+        </main>
+
+        <!-- Empty State -->
+        <div class="empty-state hidden" id="empty-state">
+            <div class="empty-icon">🌀</div>
+            <h2>No requests found</h2>
+            <p>All clear! No unfulfilled requests match your filters.</p>
+        </div>
+
+        <!-- Loading Skeleton -->
+        <div class="skeleton-container" id="skeleton-container">
+            <div class="skeleton-card"></div>
+            <div class="skeleton-card"></div>
+            <div class="skeleton-card"></div>
+            <div class="skeleton-card"></div>
+        </div>
+
+        <!-- Maintenance View -->
+        <section id="maintenance-view" class="maintenance-view hidden">
+            <h2 class="section-title">System Maintenance</h2>
+            <div class="maintenance-grid">
+                <!-- Clean requests card -->
+                <div class="maintenance-card">
+                    <h3>Mass Remove Old Requests</h3>
+                    <p>Permanently remove unfulfilled requests created before a specific date, both from Seerr and the local database.</p>
+                    <div class="form-group">
+                        <label for="clean-date">Remove requests older than:</label>
+                        <input type="date" id="clean-date" class="form-input">
+                    </div>
+                    <div class="form-group">
+                        <label>Statuses to remove:</label>
+                        <div class="checkbox-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="clean-status-pending" checked>
+                                <span>Pending</span>
+                            </label>
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="clean-status-waiting">
+                                <span>Waiting Release</span>
+                            </label>
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="clean-status-unavailable">
+                                <span>Unavailable</span>
+                            </label>
+                        </div>
+                    </div>
+                    <button class="btn btn-danger" id="btn-clean-requests" onclick="App.cleanOlderRequests()">Clean Requests</button>
+                </div>
+
+                <!-- Refresh Cache card -->
+                <div class="maintenance-card">
+                    <h3>Refresh Poster & Release Cache</h3>
+                    <p>Force reload TMDB poster paths and release dates from Seerr for all tracking requests.</p>
+                    <button class="btn btn-primary" id="btn-refresh-cache" onclick="App.refreshPosterCache()">Refresh Cache</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Toast Container -->
+        <div class="toast-container" id="toast-container"></div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="/js/utils.js"></script>
+    <script src="/js/api.js"></script>
+    <script src="/js/components.js"></script>
+    <script src="/js/app.js"></script>
+</body>
+</html>
