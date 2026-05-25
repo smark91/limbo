@@ -4,6 +4,13 @@ on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Custom tag version (defaults to dev-<sha> if empty)'
+        required: false
+        default: ''
+
 
 env:
   REGISTRY: ghcr.io
@@ -13,6 +20,9 @@ env:
 jobs:
   build:
     runs-on: ${{ matrix.platform.runner }}
+    permissions:
+      contents: read
+      packages: write
     strategy:
       matrix:
         platform:
@@ -25,13 +35,37 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
 
-      - name: Extract tag name
+      - name: Extract tag name and pre-release status
         id: get_version
         run: |
-          # Extract version from tag (e.g., refs/tags/v1.0.0 -> 1.0.0)
-          VERSION=${GITHUB_REF#refs/tags/}
-          VERSION_NO_V=${VERSION#v}
-          echo "version=${VERSION_NO_V}" >> $GITHUB_OUTPUT
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+            # Use manually entered input version
+            VERSION="${{ github.event.inputs.version }}"
+            VERSION_NO_V=${VERSION#v}
+            echo "version=${VERSION_NO_V}" >> $GITHUB_OUTPUT
+            echo "is_tag=true" >> $GITHUB_OUTPUT
+            echo "prerelease=false" >> $GITHUB_OUTPUT
+          elif [[ $GITHUB_REF == refs/tags/* ]]; then
+            # Use Git tag
+            VERSION=${GITHUB_REF#refs/tags/}
+            VERSION_NO_V=${VERSION#v}
+            echo "version=${VERSION_NO_V}" >> $GITHUB_OUTPUT
+            echo "is_tag=true" >> $GITHUB_OUTPUT
+            
+            # Check if tag is a pre-release (contains a hyphen, e.g., v1.0.0-beta)
+            if [[ "$VERSION" == *-* ]]; then
+              echo "prerelease=true" >> $GITHUB_OUTPUT
+            else
+              echo "prerelease=false" >> $GITHUB_OUTPUT
+            fi
+          else
+            # Fallback for manual/branch runs
+            SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+            echo "version=dev-${SHORT_SHA}" >> $GITHUB_OUTPUT
+            echo "is_tag=false" >> $GITHUB_OUTPUT
+            echo "prerelease=false" >> $GITHUB_OUTPUT
+          fi
+
 
       - name: Set up Go
         uses: actions/setup-go@v6
@@ -179,6 +213,7 @@ jobs:
           path: dist
 
       - name: Create GitHub Release
+        if: steps.get_version.outputs.is_tag == 'true'
         uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ github.ref_name }}
