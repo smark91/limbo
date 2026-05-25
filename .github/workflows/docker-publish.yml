@@ -182,10 +182,6 @@ jobs:
           TAG_BASE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}"
           VERSION_TAG="${{ steps.get_version.outputs.version }}"
           
-          # Pull the individual arch images
-          docker pull ${TAG_BASE}:${VERSION_TAG}-amd64
-          docker pull ${TAG_BASE}:${VERSION_TAG}-arm64
-          
           # Create and push manifest for version tag
           docker manifest create ${TAG_BASE}:${VERSION_TAG} \
             ${TAG_BASE}:${VERSION_TAG}-amd64 \
