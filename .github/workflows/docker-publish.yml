@@ -91,7 +91,7 @@ jobs:
           CGO_ENABLED=1 GOOS=windows GOARCH=amd64 CC=x86_64-w64-mingw32-gcc go build -o dist/limbo-windows-amd64.exe -ldflags="-s -w" .
 
       - name: Upload Binaries as Artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: binaries-${{ matrix.platform.arch }}
           path: dist/*
@@ -116,6 +116,7 @@ jobs:
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=semver,pattern={{major}}
+            type=raw,value=${{ steps.get_version.outputs.version }}
           labels: |
             org.opencontainers.image.version=${{ steps.get_version.outputs.version }}
 
@@ -212,13 +213,13 @@ jobs:
             ${TAG_BASE}:${VERSION_TAG}-arm64
 
       - name: Download amd64 artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: binaries-amd64
           path: dist
 
       - name: Download arm64 artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: binaries-arm64
           path: dist
