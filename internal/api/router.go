@@ -50,6 +50,7 @@ func NewRouter(deps Deps, frontendFS http.FileSystem) http.Handler {
 		r.Post("/maintenance/clean-older", handleCleanOlder(deps.DB, deps.Seerr))
 		r.Post("/maintenance/refresh-cache", handleRefreshCache(deps.DB, deps.Seerr, deps.Config))
 		r.Get("/maintenance/cache", handleGetCacheInfo(deps.DB, deps.Config))
+		r.Post("/maintenance/test-notification", handleTestNotification(deps.DB, deps.Scanner, deps.Seerr))
 	})
 
 	// Frontend static files — serve SPA

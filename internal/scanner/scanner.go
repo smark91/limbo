@@ -355,3 +355,8 @@ func parseTime(s string) time.Time {
 
 // Ensure clause import is used (for potential future upsert usage)
 var _ = clause.OnConflict{}
+
+// Notifier returns the scanner's notifier.
+func (s *Scanner) Notifier() *Notifier {
+	return s.notifier
+}

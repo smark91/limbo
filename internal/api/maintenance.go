@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -234,6 +235,98 @@ func handleGetCacheInfo(db *gorm.DB, cfg *config.Config) http.HandlerFunc {
 			ActiveCount: activeCount,
 			TotalCount:  totalCount,
 			Size:        size,
+		})
+	}
+}
+
+// handleTestNotification triggers a test Discord notification.
+func handleTestNotification(db *gorm.DB, scannerInstance *scanner.Scanner, seerrClient *seerr.Client) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+
+		notifier := scannerInstance.Notifier()
+		if notifier == nil {
+			http.Error(w, "Discord notifications are not configured (DISCORD_WEBHOOK_URL is empty)", http.StatusBadRequest)
+			return
+		}
+
+		var payload struct {
+			Type string `json:"type"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+			http.Error(w, "Invalid JSON body", http.StatusBadRequest)
+			return
+		}
+
+		var title, mediaType, posterURL, serviceURL, requestedBy string
+		var releaseInfo scanner.ReleaseInfo
+		var requestAge time.Duration
+
+		switch payload.Type {
+		case "system":
+			title = "System Test Notification"
+			mediaType = "movie"
+			posterURL = "https://image.tmdb.org/t/p/w300/63515438.jpg"
+			serviceURL = "https://radarr.video"
+			releaseInfo = scanner.ReleaseInfo{
+				Source: "Digital",
+			}
+			tNow := time.Now()
+			releaseInfo.Date = &tNow
+			requestedBy = "Limbo System Test"
+			requestAge = 30 * time.Minute
+
+		case "movie", "tv":
+			var entry database.TriageEntry
+			err := db.WithContext(ctx).
+				Where("media_type = ?", payload.Type).
+				Order("seerr_created_at DESC").
+				First(&entry).Error
+			if err != nil {
+				if err == gorm.ErrRecordNotFound {
+					http.Error(w, fmt.Sprintf("No request of type '%s' found in the database to test with", payload.Type), http.StatusNotFound)
+				} else {
+					http.Error(w, "Database error", http.StatusInternalServerError)
+				}
+				return
+			}
+
+			title = entry.Title
+			mediaType = entry.MediaType
+			if entry.PosterPath != "" {
+				posterURL = fmt.Sprintf("https://image.tmdb.org/t/p/w300%s", entry.PosterPath)
+			}
+			serviceURL = entry.ServiceURL
+			if entry.ReleaseSource != nil {
+				releaseInfo.Source = *entry.ReleaseSource
+			} else {
+				releaseInfo.Source = "Unknown"
+			}
+			releaseInfo.Date = entry.ReleaseDate
+
+			// Try to fetch requester from Seerr
+			requestedBy = "Seerr User"
+			seerrReq, err := seerrClient.GetRequest(ctx, entry.SeerrRequestID)
+			if err == nil && seerrReq.RequestedBy.DisplayName != "" {
+				requestedBy = seerrReq.RequestedBy.DisplayName
+			}
+			requestAge = time.Since(entry.SeerrCreatedAt)
+
+		default:
+			http.Error(w, "Invalid test type. Expected 'system', 'movie', or 'tv'", http.StatusBadRequest)
+			return
+		}
+
+		if err := notifier.NotifyUnfulfilled(title, mediaType, posterURL, serviceURL, releaseInfo, requestedBy, requestAge); err != nil {
+			slog.ErrorContext(ctx, "Failed to send test notification", slog.Any("error", err))
+			http.Error(w, fmt.Sprintf("Failed to send notification: %v", err), http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": true,
+			"message": fmt.Sprintf("Successfully sent '%s' test notification", payload.Type),
 		})
 	}
 }

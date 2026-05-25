@@ -11,6 +11,7 @@ import (
 
 	"limbo/internal/config"
 	"limbo/internal/database"
+	"limbo/internal/scanner"
 	"limbo/internal/seerr"
 )
 
@@ -381,4 +382,158 @@ func TestGetCacheInfoHandler(t *testing.T) {
 	if resp.Size <= 0 {
 		t.Errorf("expected database size to be greater than 0, got %d", resp.Size)
 	}
+}
+
+func TestTestNotificationHandler(t *testing.T) {
+	db := setupTestDB(t)
+
+	// Seed database with mock entries
+	now := time.Now()
+	entries := []database.TriageEntry{
+		{
+			SeerrRequestID: 501,
+			Title:          "Latest Movie Request",
+			MediaType:      "movie",
+			Status:         database.StatusPending,
+			SeerrCreatedAt: now.Add(-10 * time.Hour),
+		},
+		{
+			SeerrRequestID: 502,
+			Title:          "Latest TV Request",
+			MediaType:      "tv",
+			Status:         database.StatusPending,
+			SeerrCreatedAt: now.Add(-5 * time.Hour),
+		},
+	}
+
+	for _, entry := range entries {
+		if err := db.Create(&entry).Error; err != nil {
+			t.Fatalf("failed to seed entry: %v", err)
+		}
+	}
+
+	// Set up mock HTTP server for Seerr and Discord webhook
+	var receivedWebhookPayload map[string]interface{}
+	discordServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == "POST" {
+			json.NewDecoder(r.Body).Decode(&receivedWebhookPayload)
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer discordServer.Close()
+
+	seerrServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == "GET" && r.URL.Path == "/api/v1/request/501" {
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{
+				"id": 501,
+				"type": "movie",
+				"requestedBy": {"displayName": "Movie Requester"}
+			}`))
+			return
+		}
+		if r.Method == "GET" && r.URL.Path == "/api/v1/request/502" {
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{
+				"id": 502,
+				"type": "tv",
+				"requestedBy": {"displayName": "TV Requester"}
+			}`))
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer seerrServer.Close()
+
+	cfg := &config.Config{
+		DBDriver:          "sqlite",
+		DiscordWebhookURL: discordServer.URL,
+		SeerrURL:          seerrServer.URL,
+		SeerrAPIKey:       "test-api-key",
+	}
+
+	seerrClient := seerr.NewClient(cfg)
+	scannerInstance := scanner.New(cfg, db, seerrClient)
+
+	// Sub-test 1: System Test Notification
+	t.Run("System Test Notification", func(t *testing.T) {
+		receivedWebhookPayload = nil
+		reqBody, _ := json.Marshal(map[string]string{"type": "system"})
+		req, _ := http.NewRequest("POST", "/api/maintenance/test-notification", bytes.NewBuffer(reqBody))
+		rr := httptest.NewRecorder()
+
+		handler := handleTestNotification(db, scannerInstance, seerrClient)
+		handler.ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusOK {
+			t.Fatalf("expected status 200, got %d. Body: %s", rr.Code, rr.Body.String())
+		}
+
+		if receivedWebhookPayload == nil {
+			t.Errorf("expected webhook notification to be sent to Discord")
+		} else {
+			embeds := receivedWebhookPayload["embeds"].([]interface{})
+			embed := embeds[0].(map[string]interface{})
+			if embed["title"] != "🎬 System Test Notification" {
+				t.Errorf("expected embed title '🎬 System Test Notification', got %v", embed["title"])
+			}
+		}
+	})
+
+	// Sub-test 2: Latest Movie Test Notification
+	t.Run("Latest Movie Notification", func(t *testing.T) {
+		receivedWebhookPayload = nil
+		reqBody, _ := json.Marshal(map[string]string{"type": "movie"})
+		req, _ := http.NewRequest("POST", "/api/maintenance/test-notification", bytes.NewBuffer(reqBody))
+		rr := httptest.NewRecorder()
+
+		handler := handleTestNotification(db, scannerInstance, seerrClient)
+		handler.ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusOK {
+			t.Fatalf("expected status 200, got %d. Body: %s", rr.Code, rr.Body.String())
+		}
+
+		if receivedWebhookPayload == nil {
+			t.Errorf("expected webhook notification to be sent to Discord")
+		} else {
+			embeds := receivedWebhookPayload["embeds"].([]interface{})
+			embed := embeds[0].(map[string]interface{})
+			if embed["title"] != "🎬 Latest Movie Request" {
+				t.Errorf("expected embed title '🎬 Latest Movie Request', got %v", embed["title"])
+			}
+			fields := embed["fields"].([]interface{})
+			found := false
+			for _, f := range fields {
+				fMap := f.(map[string]interface{})
+				if fMap["name"] == "Requested By" && fMap["value"] == "Movie Requester" {
+					found = true
+					break
+				}
+			}
+			if !found {
+				t.Errorf("expected field 'Requested By' with value 'Movie Requester'")
+			}
+		}
+	})
+
+	// Sub-test 3: Webhook unconfigured rejection
+	t.Run("Unconfigured Webhook", func(t *testing.T) {
+		emptyCfg := &config.Config{
+			DBDriver: "sqlite",
+		}
+		emptyScanner := scanner.New(emptyCfg, db, seerrClient)
+		reqBody, _ := json.Marshal(map[string]string{"type": "system"})
+		req, _ := http.NewRequest("POST", "/api/maintenance/test-notification", bytes.NewBuffer(reqBody))
+		rr := httptest.NewRecorder()
+
+		handler := handleTestNotification(db, emptyScanner, seerrClient)
+		handler.ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusBadRequest {
+			t.Errorf("expected status 400 when webhook is unconfigured, got %d", rr.Code)
+		}
+	})
 }

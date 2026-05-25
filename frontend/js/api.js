@@ -100,5 +100,15 @@ const API = {
      */
     getCacheInfo() {
         return this._fetch('/api/maintenance/cache');
+    },
+
+    /**
+     * POST /api/maintenance/test-notification
+     */
+    testNotification(type) {
+        return this._fetch('/api/maintenance/test-notification', {
+            method: 'POST',
+            body: JSON.stringify({ type })
+        });
     }
 };

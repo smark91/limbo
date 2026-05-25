@@ -364,6 +364,28 @@ const App = {
         } catch (err) {
             console.error('Failed to load cache info:', err);
         }
+    },
+
+    /**
+     * Trigger a test notification.
+     * @param {'system'|'movie'|'tv'} type
+     */
+    async testNotification(type) {
+        const btn = document.getElementById(`btn-test-notification-${type}`);
+        if (!btn) return;
+        const origText = btn.textContent;
+        btn.disabled = true;
+        btn.textContent = 'Testing...';
+
+        try {
+            const res = await API.testNotification(type);
+            showToast(res.message || 'Test notification sent successfully', 'success');
+        } catch (err) {
+            showToast(err.message || 'Failed to send test notification', 'error');
+        } finally {
+            btn.disabled = false;
+            btn.textContent = origText;
+        }
     }
 };
 

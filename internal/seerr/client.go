@@ -264,3 +264,17 @@ func (c *Client) doDelete(ctx context.Context, url string) error {
 
 	return nil
 }
+
+// GetRequest fetches details of a single request from Seerr by its request ID.
+func (c *Client) GetRequest(ctx context.Context, requestID int) (*SeerrRequest, error) {
+	url := fmt.Sprintf("%s/api/v1/request/%d", c.baseURL, requestID)
+	resp, err := c.doGet(ctx, url)
+	if err != nil {
+		return nil, err
+	}
+	var req SeerrRequest
+	if err := json.Unmarshal(resp, &req); err != nil {
+		return nil, fmt.Errorf("parsing request detail: %w", err)
+	}
+	return &req, nil
+}
