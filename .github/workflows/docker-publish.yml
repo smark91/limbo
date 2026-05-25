@@ -205,6 +205,9 @@ jobs:
             if [[ "${{ steps.get_version.outputs.prerelease }}" == "false" ]]; then
               TAGS+=("-t" "${TAG_BASE}:latest")
             fi
+          else
+            # For branch/manual dev builds, tag as dev-latest (without overwriting production latest)
+            TAGS+=("-t" "${TAG_BASE}:dev-latest")
           fi
           
           # Create and push multi-arch image using buildx imagetools
