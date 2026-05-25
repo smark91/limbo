@@ -265,6 +265,9 @@ const App = {
                 d.setDate(d.getDate() - 30);
                 dateInput.value = d.toISOString().split('T')[0];
             }
+
+            // Load cache metrics
+            this.loadCacheInfo();
         }
     },
 
@@ -336,11 +339,30 @@ const App = {
             const res = await API.refreshCache();
             showToast(`Successfully refreshed cache for ${res.refreshedCount} request(s)`, 'success');
             await this.refresh();
+            await this.loadCacheInfo();
         } catch (err) {
             showToast(err.message || 'Failed to refresh cache', 'error');
         } finally {
             btn.disabled = false;
             btn.textContent = origText;
+        }
+    },
+
+    /**
+     * Fetch cache stats and update the maintenance page.
+     */
+    async loadCacheInfo() {
+        try {
+            const info = await API.getCacheInfo();
+            const activeEl = document.getElementById('cache-active-count');
+            const totalEl = document.getElementById('cache-total-count');
+            const sizeEl = document.getElementById('cache-size');
+
+            if (activeEl) activeEl.textContent = info.activeCount;
+            if (totalEl) totalEl.textContent = info.totalCount;
+            if (sizeEl) sizeEl.textContent = formatBytes(info.size);
+        } catch (err) {
+            console.error('Failed to load cache info:', err);
         }
     }
 };

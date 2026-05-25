@@ -93,5 +93,12 @@ const API = {
         return this._fetch('/api/maintenance/refresh-cache', {
             method: 'POST'
         });
+    },
+
+    /**
+     * GET /api/maintenance/cache
+     */
+    getCacheInfo() {
+        return this._fetch('/api/maintenance/cache');
     }
 };

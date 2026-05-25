@@ -945,6 +945,42 @@ body::before {
     line-height: 1.5;
 }
 
+.cache-info {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 16px;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid var(--border-subtle);
+    padding: 16px;
+    border-radius: var(--radius-sm);
+    margin-top: 8px;
+    margin-bottom: 8px;
+}
+
+.cache-info-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.cache-info-label {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.cache-info-value {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.maintenance-card .btn {
+    margin-top: auto;
+    width: fit-content;
+}
+
 .form-group {
     display: flex;
     flex-direction: column;

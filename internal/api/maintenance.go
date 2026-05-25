@@ -178,3 +178,62 @@ func handleRefreshCache(db *gorm.DB, seerrClient *seerr.Client, cfg *config.Conf
 		})
 	}
 }
+
+// cacheInfoResponse represents the response containing cache counts and database size.
+type cacheInfoResponse struct {
+	ActiveCount int64 `json:"activeCount"`
+	TotalCount  int64 `json:"totalCount"`
+	Size        int64 `json:"size"`
+}
+
+// handleGetCacheInfo returns stats about the database cache size and item counts.
+func handleGetCacheInfo(db *gorm.DB, cfg *config.Config) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+		var activeCount, totalCount int64
+
+		if err := db.WithContext(ctx).Model(&database.TriageEntry{}).Where("status != ?", database.StatusCompleted).Count(&activeCount).Error; err != nil {
+			slog.ErrorContext(ctx, "Failed to count active triage entries for cache info", slog.Any("error", err))
+			http.Error(w, "Database error", http.StatusInternalServerError)
+			return
+		}
+
+		if err := db.WithContext(ctx).Model(&database.TriageEntry{}).Count(&totalCount).Error; err != nil {
+			slog.ErrorContext(ctx, "Failed to count total triage entries for cache info", slog.Any("error", err))
+			http.Error(w, "Database error", http.StatusInternalServerError)
+			return
+		}
+
+		var size int64
+		switch cfg.DBDriver {
+		case "postgres":
+			if err := db.WithContext(ctx).Raw("SELECT pg_database_size(current_database())").Scan(&size).Error; err != nil {
+				slog.ErrorContext(ctx, "Failed to query PostgreSQL database size", slog.Any("error", err))
+				http.Error(w, "Database error", http.StatusInternalServerError)
+				return
+			}
+		case "sqlite":
+			var pageCount, pageSize int64
+			if err := db.WithContext(ctx).Raw("PRAGMA page_count").Scan(&pageCount).Error; err != nil {
+				slog.ErrorContext(ctx, "Failed to query SQLite page_count", slog.Any("error", err))
+				http.Error(w, "Database error", http.StatusInternalServerError)
+				return
+			}
+			if err := db.WithContext(ctx).Raw("PRAGMA page_size").Scan(&pageSize).Error; err != nil {
+				slog.ErrorContext(ctx, "Failed to query SQLite page_size", slog.Any("error", err))
+				http.Error(w, "Database error", http.StatusInternalServerError)
+				return
+			}
+			size = pageCount * pageSize
+		default:
+			slog.WarnContext(ctx, "Unsupported DB_DRIVER for cache size lookup", slog.String("driver", cfg.DBDriver))
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(cacheInfoResponse{
+			ActiveCount: activeCount,
+			TotalCount:  totalCount,
+			Size:        size,
+		})
+	}
+}

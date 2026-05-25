@@ -167,6 +167,20 @@
                 <div class="maintenance-card">
                     <h3>Refresh Poster & Release Cache</h3>
                     <p>Force reload TMDB poster paths and release dates from Seerr for all tracking requests.</p>
+                    <div class="cache-info" id="cache-info">
+                        <div class="cache-info-item">
+                            <span class="cache-info-label">Active Items</span>
+                            <strong class="cache-info-value" id="cache-active-count">—</strong>
+                        </div>
+                        <div class="cache-info-item">
+                            <span class="cache-info-label">Total Items</span>
+                            <strong class="cache-info-value" id="cache-total-count">—</strong>
+                        </div>
+                        <div class="cache-info-item">
+                            <span class="cache-info-label">Database Size</span>
+                            <strong class="cache-info-value" id="cache-size">—</strong>
+                        </div>
+                    </div>
                     <button class="btn btn-primary" id="btn-refresh-cache" onclick="App.refreshPosterCache()">Refresh Cache</button>
                 </div>
             </div>

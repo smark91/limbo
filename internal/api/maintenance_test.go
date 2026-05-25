@@ -319,3 +319,66 @@ func TestRefreshCacheHandler(t *testing.T) {
 		t.Errorf("expected TV poster '/new_poster_tv.jpg', got %q", refreshedTV.PosterPath)
 	}
 }
+
+func TestGetCacheInfoHandler(t *testing.T) {
+	db := setupTestDB(t)
+
+	// Seed database with mock entries
+	entries := []database.TriageEntry{
+		{
+			SeerrRequestID: 301,
+			Title:          "Movie 1",
+			MediaType:      "movie",
+			Status:         database.StatusPending,
+		},
+		{
+			SeerrRequestID: 302,
+			Title:          "Movie 2",
+			MediaType:      "movie",
+			Status:         database.StatusWaitingRelease,
+		},
+		{
+			SeerrRequestID: 303,
+			Title:          "Movie 3",
+			MediaType:      "movie",
+			Status:         database.StatusCompleted, // Completed, so not active
+		},
+	}
+
+	for _, entry := range entries {
+		if err := db.Create(&entry).Error; err != nil {
+			t.Fatalf("failed to seed entry: %v", err)
+		}
+	}
+
+	cfg := &config.Config{
+		DBDriver: "sqlite",
+	}
+
+	req, _ := http.NewRequest("GET", "/api/maintenance/cache", nil)
+	rr := httptest.NewRecorder()
+
+	handler := handleGetCacheInfo(db, cfg)
+	handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d. Body: %s", rr.Code, rr.Body.String())
+	}
+
+	var resp cacheInfoResponse
+	if err := json.NewDecoder(rr.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+
+	if resp.ActiveCount != 2 {
+		t.Errorf("expected activeCount to be 2, got %d", resp.ActiveCount)
+	}
+
+	if resp.TotalCount != 3 {
+		t.Errorf("expected totalCount to be 3, got %d", resp.TotalCount)
+	}
+
+	if resp.Size <= 0 {
+		t.Errorf("expected database size to be greater than 0, got %d", resp.Size)
+	}
+}
