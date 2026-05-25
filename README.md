@@ -61,7 +61,7 @@ Add Limbo to your `docker-compose.yaml` stack:
 ```yaml
 services:
   limbo:
-    image: limbo:latest
+    image: ghcr.io/smark91/limbo:latest
     container_name: limbo
     build:
       context: ./app
@@ -69,10 +69,13 @@ services:
     volumes:
       - ./config:/data
     ports:
-      - "3800:3000"
+      - "${LIMBO_PORT:-3000}:${LIMBO_PORT:-3000}"
     env_file:
       - .env
 ```
+
+> [!WARNING]
+> If you change the internal `LIMBO_PORT` (for example, to `8080`), the container's internal service port changes. In this case, you must also update the `HEALTHCHECK` port defined in the `Dockerfile` (or override it in `docker-compose.yaml`) to match the new port so the health check endpoint remains reachable.
 
 Create a `.env` file referencing the variables above:
 
