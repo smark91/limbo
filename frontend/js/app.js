@@ -285,7 +285,7 @@ const App = {
         const statuses = [];
         if (document.getElementById('clean-status-pending').checked) statuses.push('PENDING');
         if (document.getElementById('clean-status-waiting').checked) statuses.push('WAITING_RELEASE');
-        if (document.getElementById('clean-status-unavailable').checked) statuses.push('NOT_AVAILABLE');
+        if (document.getElementById('clean-status-unavailable').checked) statuses.push('UNAVAILABLE');
 
         if (statuses.length === 0) {
             showToast('Please select at least one status to remove', 'error');

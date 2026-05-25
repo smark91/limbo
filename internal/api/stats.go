@@ -16,7 +16,7 @@ var Version = "dev"
 
 type statsResponse struct {
 	Pending        int64     `json:"pending"`
-	NotAvailable   int64     `json:"notAvailable"`
+	Unavailable    int64     `json:"unavailable"`
 	WaitingRelease int64     `json:"waitingRelease"`
 	Completed      int64     `json:"completed"`
 	Total          int64     `json:"total"`
@@ -36,8 +36,8 @@ func handleStats(db *gorm.DB, scan *scanner.Scanner) http.HandlerFunc {
 			return
 		}
 
-		if err := db.WithContext(ctx).Model(&database.TriageEntry{}).Where("status = ?", database.StatusNotAvailable).Count(&stats.NotAvailable).Error; err != nil {
-			slog.ErrorContext(ctx, "Failed to count not available status", slog.Any("error", err))
+		if err := db.WithContext(ctx).Model(&database.TriageEntry{}).Where("status = ?", database.StatusUnavailable).Count(&stats.Unavailable).Error; err != nil {
+			slog.ErrorContext(ctx, "Failed to count unavailable status", slog.Any("error", err))
 			http.Error(w, "Database error", http.StatusInternalServerError)
 			return
 		}

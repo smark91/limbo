@@ -71,6 +71,11 @@ func Init(cfg *config.Config) (*gorm.DB, error) {
 		return nil, fmt.Errorf("failed to auto-migrate: %w", err)
 	}
 
+	// Migrate status 'NOT_AVAILABLE' to 'UNAVAILABLE' for backward compatibility
+	if err := db.Model(&TriageEntry{}).Where("status = ?", "NOT_AVAILABLE").Update("status", "UNAVAILABLE").Error; err != nil {
+		slog.Warn("Failed to migrate NOT_AVAILABLE statuses to UNAVAILABLE", slog.Any("error", err))
+	}
+
 	slog.Info("Connected and migrated database", slog.String("driver", cfg.DBDriver))
 	return db, nil
 }

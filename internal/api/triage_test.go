@@ -88,7 +88,7 @@ func TestTriageEndpoints(t *testing.T) {
 	t.Run("Create Triage Entry", func(t *testing.T) {
 		reqBody, _ := json.Marshal(map[string]interface{}{
 			"seerrRequestId": 123,
-			"status":         "NOT_AVAILABLE",
+			"status":         "UNAVAILABLE",
 			"notes":          "Will check later",
 		})
 		req, _ := http.NewRequest("POST", "/api/triage", bytes.NewBuffer(reqBody))
@@ -107,8 +107,8 @@ func TestTriageEndpoints(t *testing.T) {
 		if entry.SeerrRequestID != 123 {
 			t.Errorf("expected SeerrRequestID 123, got %d", entry.SeerrRequestID)
 		}
-		if entry.Status != "NOT_AVAILABLE" {
-			t.Errorf("expected Status 'NOT_AVAILABLE', got %s", entry.Status)
+		if entry.Status != "UNAVAILABLE" {
+			t.Errorf("expected Status 'UNAVAILABLE', got %s", entry.Status)
 		}
 		if entry.Notes == nil || *entry.Notes != "Will check later" {
 			t.Errorf("expected Notes 'Will check later', got %v", entry.Notes)

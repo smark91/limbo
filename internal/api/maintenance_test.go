@@ -45,7 +45,7 @@ func TestCleanOlderHandler(t *testing.T) {
 			TmdbID:         303,
 			Title:          "Old Unavailable TV",
 			MediaType:      "tv",
-			Status:         database.StatusNotAvailable,
+			Status:         database.StatusUnavailable,
 			SeerrCreatedAt: now.Add(-48 * time.Hour), // Older than 24h
 		},
 		{
@@ -154,11 +154,11 @@ func TestCleanOlderHandler(t *testing.T) {
 	})
 
 	// Test 2: Clean older requests (Older than 24 hours, NOT_AVAILABLE)
-	t.Run("Clean older requests - Not Available", func(t *testing.T) {
+	t.Run("Clean older requests - Unavailable", func(t *testing.T) {
 		olderThanTime := now.Add(-24 * time.Hour)
 		reqBody, _ := json.Marshal(map[string]interface{}{
 			"olderThan": olderThanTime.Format(time.RFC3339),
-			"statuses":  []string{database.StatusNotAvailable},
+			"statuses":  []string{database.StatusUnavailable},
 		})
 
 		req, _ := http.NewRequest("POST", "/api/maintenance/clean-older", bytes.NewBuffer(reqBody))

@@ -21,7 +21,7 @@ const Components = {
 
     /**
      * Render the stats bar.
-     * @param {Object} stats - { pending, notAvailable, waitingRelease, total }
+     * @param {Object} stats - { pending, unavailable, waitingRelease, total }
      * @param {string|null} activeStatus - currently filtered status
      */
     renderStats(stats, activeStatus = null) {
@@ -33,7 +33,7 @@ const Components = {
         const items = [
             { key: 'PENDING', label: 'Pending', count: stats.pending, dotClass: 'pending' },
             { key: 'WAITING_RELEASE', label: 'Waiting', count: stats.waitingRelease, dotClass: 'waiting' },
-            { key: 'NOT_AVAILABLE', label: 'N/A', count: stats.notAvailable, dotClass: 'not-available' },
+            { key: 'UNAVAILABLE', label: 'Unavailable', count: stats.unavailable, dotClass: 'unavailable' },
             { key: 'COMPLETED', label: 'Done', count: stats.completed, dotClass: 'completed' }
         ];
 
@@ -164,9 +164,9 @@ const Components = {
                         <span class="option-dot"></span>
                         <span>Waiting Release</span>
                     </button>
-                    <button class="triage-option" data-status="NOT_AVAILABLE" onclick="App.setTriage(${req.seerrRequestId}, 'NOT_AVAILABLE')">
+                    <button class="triage-option" data-status="UNAVAILABLE" onclick="App.setTriage(${req.seerrRequestId}, 'UNAVAILABLE')">
                         <span class="option-dot"></span>
-                        <span>Not Available</span>
+                        <span>Unavailable</span>
                     </button>
                 </div>
             </div>

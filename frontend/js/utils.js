@@ -60,7 +60,7 @@ function statusLabel(status) {
     const labels = {
         'PENDING': 'Pending',
         'WAITING_RELEASE': 'Waiting Release',
-        'NOT_AVAILABLE': 'Not Available',
+        'UNAVAILABLE': 'Unavailable',
         'COMPLETED': 'Completed'
     };
     return labels[status] || status;

@@ -26,8 +26,8 @@
     /* Status Colors */
     --color-pending: #f59e0b;
     --color-pending-bg: rgba(245, 158, 11, 0.12);
-    --color-not-available: #f43f5e;
-    --color-not-available-bg: rgba(244, 63, 94, 0.12);
+    --color-unavailable: #f43f5e;
+    --color-unavailable-bg: rgba(244, 63, 94, 0.12);
     --color-waiting: #0ea5e9;
     --color-waiting-bg: rgba(14, 165, 233, 0.12);
     --color-completed: #10b981;
@@ -283,7 +283,7 @@ body::before {
 
 /* Stat card color accents */
 .stat-card[data-status="PENDING"]::before { background: var(--color-pending); }
-.stat-card[data-status="NOT_AVAILABLE"]::before { background: var(--color-not-available); }
+.stat-card[data-status="UNAVAILABLE"]::before { background: var(--color-unavailable); }
 .stat-card[data-status="WAITING_RELEASE"]::before { background: var(--color-waiting); }
 .stat-card[data-status="COMPLETED"]::before { background: var(--color-completed); }
 
@@ -313,7 +313,7 @@ body::before {
 
 /* Status dot colors */
 .stat-dot.pending { background: var(--color-pending); }
-.stat-dot.not-available { background: var(--color-not-available); }
+.stat-dot.unavailable { background: var(--color-unavailable); }
 .stat-dot.waiting { background: var(--color-waiting); }
 .stat-dot.completed { background: var(--color-completed); }
 
@@ -589,11 +589,11 @@ body::before {
 }
 .status-badge.PENDING .status-dot { background: var(--color-pending); }
 
-.status-badge.NOT_AVAILABLE {
-    background: var(--color-not-available-bg);
-    color: var(--color-not-available);
+.status-badge.UNAVAILABLE {
+    background: var(--color-unavailable-bg);
+    color: var(--color-unavailable);
 }
-.status-badge.NOT_AVAILABLE .status-dot { background: var(--color-not-available); }
+.status-badge.UNAVAILABLE .status-dot { background: var(--color-unavailable); }
 
 .status-badge.WAITING_RELEASE {
     background: var(--color-waiting-bg);
@@ -661,13 +661,13 @@ body::before {
 }
 
 .action-btn.triage-unavailable {
-    color: var(--color-not-available);
+    color: var(--color-unavailable);
     border-color: rgba(239, 68, 68, 0.2);
 }
 
 .action-btn.triage-unavailable:hover {
     background: rgba(239, 68, 68, 0.1);
-    border-color: var(--color-not-available);
+    border-color: var(--color-unavailable);
 }
 
 .action-btn:hover {
@@ -738,7 +738,7 @@ body::before {
 }
 
 .triage-option[data-status="PENDING"] .option-dot { background: var(--color-pending); }
-.triage-option[data-status="NOT_AVAILABLE"] .option-dot { background: var(--color-not-available); }
+.triage-option[data-status="UNAVAILABLE"] .option-dot { background: var(--color-unavailable); }
 .triage-option[data-status="WAITING_RELEASE"] .option-dot { background: var(--color-waiting); }
 
 /* --- Skeleton Loading --- */
@@ -825,7 +825,7 @@ body::before {
 }
 
 .toast.toast-success { border-left: 3px solid var(--color-success); }
-.toast.toast-error { border-left: 3px solid var(--color-not-available); }
+.toast.toast-error { border-left: 3px solid var(--color-unavailable); }
 .toast.toast-info { border-left: 3px solid var(--color-waiting); }
 
 .toast.removing {
@@ -1075,12 +1075,12 @@ body::before {
 .btn-danger {
     background: rgba(244, 63, 94, 0.15);
     border-color: rgba(244, 63, 94, 0.3);
-    color: var(--color-not-available);
+    color: var(--color-unavailable);
 }
 
 .btn-danger:hover {
     background: rgba(244, 63, 94, 0.25);
-    border-color: var(--color-not-available);
+    border-color: var(--color-unavailable);
     color: var(--text-primary);
 }
 

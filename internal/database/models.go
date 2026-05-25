@@ -6,7 +6,7 @@ import "time"
 const (
 	StatusPending        = "PENDING"
 	StatusWaitingRelease = "WAITING_RELEASE"
-	StatusNotAvailable   = "NOT_AVAILABLE"
+	StatusUnavailable    = "UNAVAILABLE"
 	StatusCompleted      = "COMPLETED"
 )
 
@@ -15,7 +15,7 @@ func AllStatuses() []string {
 	return []string{
 		StatusPending,
 		StatusWaitingRelease,
-		StatusNotAvailable,
+		StatusUnavailable,
 		StatusCompleted,
 	}
 }
@@ -31,7 +31,7 @@ type TriageEntry struct {
 	Title          string     `json:"title"`           // Cached title from Seerr
 	Status         string     `gorm:"default:PENDING" json:"status"`
 	Notes          *string    `json:"notes,omitempty"`
-	Reason         *string    `json:"reason,omitempty"`        // Why not-available
+	Reason         *string    `json:"reason,omitempty"`        // Why unavailable
 	ReleaseDate    *time.Time `json:"releaseDate,omitempty"`
 	ReleaseSource  *string    `json:"releaseSource,omitempty"` // "Digital", "Physical", "Theatrical", "Unknown"
 	ServiceURL     string     `json:"serviceUrl,omitempty"`
