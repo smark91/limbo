@@ -24,19 +24,25 @@ const App = {
     async init() {
         console.log('🌀 Limbo initializing...');
 
+        // Initialize Theme Settings
+        this.initTheme();
+
         // Bind event listeners
         this.bindEvents();
 
-        // Initialize flatpickr on date input
+        // Register Service Worker for PWA installation
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js')
+                .then(reg => console.log('✅ ServiceWorker registered on scope:', reg.scope))
+                .catch(err => console.error('❌ ServiceWorker registration failed:', err));
+        }
+
+        // Initialize default date value
         const dateInput = document.getElementById('clean-date');
-        if (dateInput && window.flatpickr) {
+        if (dateInput) {
             const d = new Date();
             d.setDate(d.getDate() - 30);
-            window.flatpickr(dateInput, {
-                defaultDate: d,
-                dateFormat: "Y-m-d",
-                disableMobile: true
-            });
+            dateInput.value = d.toISOString().split('T')[0];
         }
 
         // Show skeletons
@@ -57,6 +63,44 @@ const App = {
      * Bind DOM event listeners.
      */
     bindEvents() {
+        // Theme button click: cycle theme
+        const btnTheme = document.getElementById('btn-theme');
+        if (btnTheme) {
+            btnTheme.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.cycleTheme();
+            });
+        }
+
+        // PWA Install prompt handling
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            this.deferredPrompt = e;
+            const installBtn = document.getElementById('btn-install');
+            if (installBtn) {
+                installBtn.classList.remove('hidden');
+            }
+        });
+
+        const installBtn = document.getElementById('btn-install');
+        if (installBtn) {
+            installBtn.addEventListener('click', async () => {
+                if (!this.deferredPrompt) return;
+                this.deferredPrompt.prompt();
+                const { outcome } = await this.deferredPrompt.userChoice;
+                console.log(`PWA: Install choice outcome: ${outcome}`);
+                this.deferredPrompt = null;
+                installBtn.classList.add('hidden');
+            });
+        }
+
+        window.addEventListener('appinstalled', () => {
+            console.log('✅ PWA: App installed successfully');
+            if (installBtn) {
+                installBtn.classList.add('hidden');
+            }
+        });
+
         // Sync button
         document.getElementById('btn-sync').addEventListener('click', () => this.triggerSync());
 
@@ -386,6 +430,74 @@ const App = {
             btn.disabled = false;
             btn.textContent = origText;
         }
+    },
+
+    /**
+     * Initialize theme settings and register listeners.
+     */
+    initTheme() {
+        const theme = localStorage.getItem('limbo-theme') || 'system';
+        this.applyTheme(theme);
+
+        // Watch for system theme changes if set to system
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+            if (localStorage.getItem('limbo-theme') === 'system') {
+                this.applyTheme('system');
+            }
+        });
+    },
+
+    /**
+     * Set the application theme (light, dark, or system).
+     */
+    setTheme(theme, event) {
+        if (event) event.stopPropagation();
+        localStorage.setItem('limbo-theme', theme);
+        this.applyTheme(theme);
+        showToast(`Theme set to ${theme}`, 'success');
+    },
+
+    /**
+     * Cycle to the next theme (system -> light -> dark -> system).
+     */
+    cycleTheme() {
+        const current = localStorage.getItem('limbo-theme') || 'system';
+        let next = 'system';
+        if (current === 'system') {
+            next = 'light';
+        } else if (current === 'light') {
+            next = 'dark';
+        } else {
+            next = 'system';
+        }
+        this.setTheme(next);
+    },
+
+    /**
+     * Apply theme class helper.
+     */
+    applyTheme(theme) {
+        const isDark = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+        
+        if (isDark) {
+            document.documentElement.classList.add('dark');
+        } else {
+            document.documentElement.classList.remove('dark');
+        }
+
+        // Update active icon class in button
+        const icons = {
+            light: document.getElementById('theme-icon-light'),
+            dark: document.getElementById('theme-icon-dark'),
+            system: document.getElementById('theme-icon-system')
+        };
+
+        Object.keys(icons).forEach(k => {
+            if (icons[k]) {
+                icons[k].classList.toggle('active', k === theme);
+                icons[k].classList.toggle('hidden', k !== theme);
+            }
+        });
     }
 };
 

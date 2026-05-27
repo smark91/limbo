@@ -47,7 +47,8 @@ stacks/limbo/
         ├── index.html        # App shell
         ├── manifest.json     # PWA metadata
         ├── css/
-        │   └── styles.css    # Premium CSS design system (dark mode, glassmorphism)
+        │   ├── tailwind.css  # Tailwind v4 source (CSS-first config, @theme, @source)
+        │   └── styles.css    # ⚠️ BUILD ARTIFACT — compiled by Tailwind CLI (do NOT edit)
         ├── js/
         │   ├── api.js        # API client fetch wrapper
         │   ├── app.js        # SPA controller & event loop
@@ -126,6 +127,29 @@ stateDiagram-v2
 - **`WAITING_RELEASE`**: Media is not yet released. The background scan updates this when the release date passes.
 - **`NOT_AVAILABLE`**: A triage administrator manually marked this request as currently unavailable or unfulfillable.
 - **`COMPLETED`**: Automatically set when Seerr reports the media as partially or fully available.
+
+---
+
+## 🎨 Frontend CSS Build (Tailwind v4)
+
+The frontend uses **Tailwind CSS v4** with the standalone CLI (no Node.js/npm required). CSS configuration is done entirely in CSS using Tailwind v4's CSS-first approach.
+
+### Source & Output
+- **Source**: `frontend/css/tailwind.css` — contains `@import "tailwindcss"`, `@custom-variant`, `@source`, and `@theme` directives.
+- **Output**: `frontend/css/styles.css` — **build artifact**, compiled by the Tailwind CLI. Do NOT edit manually; it is gitignored and regenerated during every build.
+
+### How It Builds
+- **Docker (local dev/test)**: The `Dockerfile` has a `tailwind` stage that downloads the standalone CLI binary and runs:
+  ```
+  tailwindcss --input frontend/css/tailwind.css --output frontend/css/styles.css --minify
+  ```
+  The compiled CSS is then `COPY --from=tailwind` into the Go builder stage before `go build`.
+- **CI/CD**: The GitHub Actions workflow downloads the CLI binary for the runner arch and runs the same command before `go build`.
+
+### Updating Styles
+- To add new theme tokens, keyframes, or custom variants, edit `frontend/css/tailwind.css`.
+- Tailwind v4 automatically detects utility classes used in `frontend/**/*.html` and `frontend/js/**/*.js` files via `@source` directives.
+- The IDE may show lint warnings on `@custom-variant`, `@source`, `@theme` — these are valid Tailwind v4 CSS directives and can be safely ignored.
 
 ---
 

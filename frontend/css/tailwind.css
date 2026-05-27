@@ -1,0 +1,34 @@
+@import "tailwindcss";
+
+/* Use class-based dark mode (toggle .dark on <html>) */
+@custom-variant dark (&:is(.dark *));
+
+/* Tell Tailwind to also scan JS files for class names */
+@source "../js";
+@source "..";
+
+@theme {
+  /* Custom Animations */
+  --animate-fade-in-up: fadeInUp 0.4s ease forwards;
+  --animate-float: float 3s ease-in-out infinite;
+
+  @keyframes fadeInUp {
+    0% {
+      opacity: 0;
+      transform: translateY(12px);
+    }
+    100% {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes float {
+    0%, 100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-8px);
+    }
+  }
+}

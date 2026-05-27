@@ -23,204 +23,350 @@
     <!-- Favicon -->
     <link rel="icon" type="image/svg+xml" href="/assets/logo.svg">
 
-    <!-- Flatpickr Datepicker -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/dark.css">
+    <!-- Dark Mode Init Script -->
+    <script>
+        (function() {
+            const theme = localStorage.getItem('limbo-theme') || 'system';
+            if (theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
+        })();
+    </script>
 
-    <!-- Styles -->
+    <!-- Tailwind CSS (compiled) -->
     <link rel="stylesheet" href="/css/styles.css">
 </head>
 
-<body>
-    <div id="app">
-        <!-- Header -->
-        <header class="header" id="header">
-            <div class="header-left">
-                <div class="logo" id="logo" style="cursor: pointer;" onclick="App.switchView('dashboard')">
-                    <img src="/assets/logo.svg" class="logo-img" alt="Limbo Logo">
-                    <span class="logo-text">LIMBO</span>
-                    <span class="logo-version" id="logo-version"></span>
+<body class="bg-slate-50 text-slate-900 dark:bg-slate-900 dark:text-slate-100 min-h-screen font-sans transition-colors duration-200">
+    <!-- Header -->
+    <header
+        class="sticky top-0 z-[100] w-full bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-b border-slate-200 dark:border-slate-800"
+        id="header">
+        <div class="max-w-[1200px] mx-auto px-4 sm:px-5 py-4 sm:py-5 grid grid-cols-2 gap-y-3 gap-x-4 sm:flex sm:items-center sm:justify-between">
+            <!-- 1. Logo (Order 1) -->
+            <div class="flex items-center gap-2.5 cursor-pointer order-1" id="logo" onclick="App.switchView('dashboard')">
+                <div class="flex items-center gap-2">
+                    <img src="/assets/logo.svg" class="w-6 h-6 shrink-0" alt="Limbo Logo">
+                    <span class="text-xl font-extrabold tracking-widest text-slate-850 dark:text-slate-100">LIMBO</span>
                 </div>
-                <nav class="nav-menu">
-                    <button class="nav-link active" id="nav-dashboard"
-                        onclick="App.switchView('dashboard')">Dashboard</button>
-                    <button class="nav-link" id="nav-maintenance"
-                        onclick="App.switchView('maintenance')">Maintenance</button>
-                </nav>
+                <span
+                    class="text-[0.7rem] font-medium text-slate-500 dark:text-slate-400 py-0.5 px-1.5 bg-slate-100 dark:bg-slate-800 rounded border border-slate-200 dark:border-slate-700"
+                    id="logo-version"></span>
             </div>
-            <div class="header-right">
-                <span class="last-sync" id="last-sync">Last sync: —</span>
-                <button class="btn btn-sync" id="btn-sync" title="Trigger sync">
-                    <svg class="icon-sync" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                        stroke-linecap="round" stroke-linejoin="round">
+
+            <!-- 2. Sync Actions (Order 2 on Mobile, Order 3 on Desktop) -->
+            <div class="flex items-center justify-end w-full sm:w-auto gap-3 sm:gap-4 order-2 sm:order-3">
+                <span class="text-[0.75rem] sm:text-[0.8rem] text-slate-500 dark:text-slate-400" id="last-sync">Last sync: —</span>
+                <button
+                    class="btn btn-install hidden [&.hidden]:hidden inline-flex items-center gap-1.5 py-2 px-4 border border-indigo-700/50 rounded bg-indigo-600/20 text-indigo-500 dark:text-indigo-200 text-[0.85rem] font-semibold cursor-pointer transition-all duration-150 hover:bg-indigo-600/35 hover:border-indigo-600 active:translate-y-0"
+                    id="btn-install" title="Install Limbo App">
+                    <svg class="w-4 h-4 text-indigo-500 dark:text-indigo-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                        <polyline points="7 10 12 15 17 10" />
+                        <line x1="12" y1="15" x2="12" y2="3" />
+                    </svg>
+                    <span>Install</span>
+                </button>
+                <button
+                    class="btn btn-sync inline-flex items-center gap-1.5 py-2 px-4 border border-slate-250 dark:border-slate-700 rounded bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-[0.85rem] font-medium cursor-pointer transition-all duration-150 hover:bg-slate-100 dark:hover:bg-slate-700 hover:border-slate-350 dark:hover:border-slate-600 hover:-translate-y-px active:translate-y-0 [&.syncing_.icon-sync]:animate-spin"
+                    id="btn-sync" title="Trigger sync">
+                    <svg class="icon-sync w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2" />
                     </svg>
                     <span>Sync</span>
                 </button>
             </div>
-        </header>
+
+            <!-- 3. Navigation (Order 3 on Mobile, Order 2 on Desktop) -->
+            <nav class="flex items-center justify-between sm:justify-start gap-1.5 col-span-2 w-full sm:w-auto order-3 sm:order-2 sm:mr-auto sm:ml-4" id="navigation">
+                <div class="flex items-center gap-1.5">
+                    <button
+                        class="nav-link active bg-transparent text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 py-2 px-4 text-[0.85rem] font-medium cursor-pointer rounded transition-all duration-150 relative border-none [&.active]:bg-slate-200/60 dark:[&.active]:bg-slate-800 [&.active]:text-slate-900 dark:[&.active]:text-slate-100 [&.active]:font-semibold"
+                        id="nav-dashboard" onclick="App.switchView('dashboard')">Dashboard</button>
+                    <button
+                        class="nav-link bg-transparent text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 py-2 px-4 text-[0.85rem] font-medium cursor-pointer rounded transition-all duration-150 relative border-none [&.active]:bg-slate-200/60 dark:[&.active]:bg-slate-800 [&.active]:text-slate-900 dark:[&.active]:text-slate-100 [&.active]:font-semibold"
+                        id="nav-maintenance" onclick="App.switchView('maintenance')">Maintenance</button>
+                </div>
+                
+                <!-- Theme Selector -->
+                <div class="relative inline-block flex ml-1 sm:ml-2" id="theme-selector-container">
+                    <button id="btn-theme" class="btn inline-flex items-center justify-center p-2 border border-transparent hover:border-slate-250 dark:hover:border-slate-700 rounded bg-transparent hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 transition-all duration-150 cursor-pointer" title="Change Theme">
+                        <!-- Sun Icon -->
+                        <svg class="w-4 h-4 hidden" id="theme-icon-light" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                        </svg>
+                        <!-- Moon Icon -->
+                        <svg class="w-4 h-4 hidden" id="theme-icon-dark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                        </svg>
+                        <!-- System Icon -->
+                        <svg class="w-4 h-4 hidden" id="theme-icon-system" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line>
+                        </svg>
+                    </button>
+                </div>
+            </nav>
+        </div>
+    </header>
+
+    <div id="app" class="relative z-10 max-w-[1200px] mx-auto px-4 pb-10 mt-6">
 
         <!-- Stats Bar -->
-        <section class="stats-bar" id="stats-bar">
-            <!-- Populated by JS -->
+        <section class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6 p-0.5" id="stats-bar">
+            <!-- Pending -->
+            <div class="stat-card group/card relative flex flex-row-reverse sm:flex-col items-center justify-between sm:justify-center p-3 sm:p-4 rounded-xl bg-white/60 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 text-center cursor-pointer transition-all duration-200 overflow-hidden hover:-translate-y-0.5 hover:shadow-md hover:border-slate-300 dark:hover:border-slate-700 [&.active]:border-slate-400 dark:[&.active]:border-slate-700" 
+                 data-status="PENDING" 
+                 id="stat-PENDING"
+                 onclick="App.filterByStatus('PENDING')">
+                <div class="absolute top-0 left-0 right-0 h-[2px] transition-opacity duration-200 opacity-0 group-[.active]/card:opacity-100 bg-amber-500"></div>
+                <div class="stat-count text-xl sm:text-[1.75rem] font-bold leading-none sm:mb-1 text-slate-850 dark:text-slate-100">—</div>
+                <div class="text-[0.75rem] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center sm:justify-center gap-1.5">
+                    <span class="inline-block w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                    Pending
+                </div>
+            </div>
+            <!-- Waiting -->
+            <div class="stat-card group/card relative flex flex-row-reverse sm:flex-col items-center justify-between sm:justify-center p-3 sm:p-4 rounded-xl bg-white/60 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 text-center cursor-pointer transition-all duration-200 overflow-hidden hover:-translate-y-0.5 hover:shadow-md hover:border-slate-300 dark:hover:border-slate-700 [&.active]:border-slate-400 dark:[&.active]:border-slate-700" 
+                 data-status="WAITING_RELEASE" 
+                 id="stat-WAITING_RELEASE"
+                 onclick="App.filterByStatus('WAITING_RELEASE')">
+                <div class="absolute top-0 left-0 right-0 h-[2px] transition-opacity duration-200 opacity-0 group-[.active]/card:opacity-100 bg-sky-500"></div>
+                <div class="stat-count text-xl sm:text-[1.75rem] font-bold leading-none sm:mb-1 text-slate-850 dark:text-slate-100">—</div>
+                <div class="text-[0.75rem] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center sm:justify-center gap-1.5">
+                    <span class="inline-block w-1.5 h-1.5 rounded-full bg-sky-500"></span>
+                    Waiting
+                </div>
+            </div>
+            <!-- Unavailable -->
+            <div class="stat-card group/card relative flex flex-row-reverse sm:flex-col items-center justify-between sm:justify-center p-3 sm:p-4 rounded-xl bg-white/60 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 text-center cursor-pointer transition-all duration-200 overflow-hidden hover:-translate-y-0.5 hover:shadow-md hover:border-slate-300 dark:hover:border-slate-700 [&.active]:border-slate-400 dark:[&.active]:border-slate-700" 
+                 data-status="UNAVAILABLE" 
+                 id="stat-UNAVAILABLE"
+                 onclick="App.filterByStatus('UNAVAILABLE')">
+                <div class="absolute top-0 left-0 right-0 h-[2px] transition-opacity duration-200 opacity-0 group-[.active]/card:opacity-100 bg-rose-500"></div>
+                <div class="stat-count text-xl sm:text-[1.75rem] font-bold leading-none sm:mb-1 text-slate-850 dark:text-slate-100">—</div>
+                <div class="text-[0.75rem] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center sm:justify-center gap-1.5">
+                    <span class="inline-block w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+                    Unavailable
+                </div>
+            </div>
+            <!-- Done -->
+            <div class="stat-card group/card relative flex flex-row-reverse sm:flex-col items-center justify-between sm:justify-center p-3 sm:p-4 rounded-xl bg-white/60 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 text-center cursor-pointer transition-all duration-200 overflow-hidden hover:-translate-y-0.5 hover:shadow-md hover:border-slate-300 dark:hover:border-slate-700 [&.active]:border-slate-400 dark:[&.active]:border-slate-700" 
+                 data-status="COMPLETED" 
+                 id="stat-COMPLETED"
+                 onclick="App.filterByStatus('COMPLETED')">
+                <div class="absolute top-0 left-0 right-0 h-[2px] transition-opacity duration-200 opacity-0 group-[.active]/card:opacity-100 bg-emerald-500"></div>
+                <div class="stat-count text-xl sm:text-[1.75rem] font-bold leading-none sm:mb-1 text-slate-850 dark:text-slate-100">—</div>
+                <div class="text-[0.75rem] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center sm:justify-center gap-1.5">
+                    <span class="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                    Done
+                </div>
+            </div>
         </section>
 
         <!-- Filters -->
-        <section class="filter-bar" id="filter-bar">
-            <div class="search-wrapper">
-                <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="#6366F1" stroke-width="2.5"
-                    stroke-linecap="round" stroke-linejoin="round">
+        <section class="filter-bar flex flex-col md:flex-row gap-3 mb-6 items-center" id="filter-bar">
+            <div class="search-wrapper relative w-full md:flex-1">
+                <svg class="search-icon absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none z-10 transition-all duration-150"
+                    viewBox="0 0 24 24" fill="none" stroke="#6366F1" stroke-width="2.5" stroke-linecap="round"
+                    stroke-linejoin="round">
                     <circle cx="11" cy="11" r="8" />
                     <line x1="21" y1="21" x2="16.65" y2="16.65" />
                 </svg>
-                <input type="text" class="search-input" id="search-input" placeholder="Search requests..."
-                    autocomplete="off">
+                <input type="text"
+                    class="search-input w-full py-2.5 pl-10 pr-3.5 rounded bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 text-slate-850 dark:text-slate-100 text-sm outline-none transition-all duration-150 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/25"
+                    id="search-input" placeholder="Search requests..." autocomplete="off">
             </div>
-            <div class="filter-group">
-                <div class="filter-select-wrapper">
-                    <svg class="filter-icon" viewBox="0 0 24 24" fill="none" stroke="#6366F1" stroke-width="2.5"
-                        stroke-linecap="round" stroke-linejoin="round">
+            <div class="filter-group flex flex-wrap gap-2.5 w-full md:w-auto">
+                <div class="filter-select-wrapper flex-1 min-w-[125px] relative flex items-center">
+                    <svg class="filter-icon absolute left-3 w-3.5 h-3.5 pointer-events-none z-10" viewBox="0 0 24 24"
+                        fill="none" stroke="#6366F1" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                         <rect x="3" y="3" width="7" height="7"></rect>
                         <rect x="14" y="3" width="7" height="7"></rect>
                         <rect x="14" y="14" width="7" height="7"></rect>
                         <rect x="3" y="14" width="7" height="7"></rect>
                     </svg>
-                    <select class="filter-select" id="filter-type">
-                        <option value="">All Types</option>
-                        <option value="movie">Movies</option>
-                        <option value="tv">TV Shows</option>
+                    <select
+                        class="filter-select w-full py-2.5 pl-9 pr-8 rounded bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 text-[0.85rem] outline-none cursor-pointer transition-all duration-150 appearance-none bg-[url('data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2212%22 height=%2212%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%239ca3b4%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M6 9l6 6 6-6%22/%3E%3C/svg%3E')] bg-no-repeat bg-[position:right_10px_center] focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/25"
+                        id="filter-type">
+                        <option value="" class="bg-white dark:bg-slate-850 text-slate-800 dark:text-slate-100">All Types</option>
+                        <option value="movie" class="bg-white dark:bg-slate-850 text-slate-800 dark:text-slate-100">Movies</option>
+                        <option value="tv" class="bg-white dark:bg-slate-850 text-slate-800 dark:text-slate-100">TV Shows</option>
                     </select>
                 </div>
-                <div class="filter-select-wrapper">
-                    <svg class="filter-icon" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2.5"
-                        stroke-linecap="round" stroke-linejoin="round">
+                <div class="filter-select-wrapper flex-1 min-w-[125px] relative flex items-center">
+                    <svg class="filter-icon absolute left-3 w-3.5 h-3.5 pointer-events-none z-10" viewBox="0 0 24 24"
+                        fill="none" stroke="#10B981" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M22 12h-4l-3 9L9 3l-3 9H2"></path>
                     </svg>
-                    <select class="filter-select" id="filter-status">
-                        <option value="">All Statuses</option>
-                        <option value="PENDING" selected>Pending</option>
-                        <option value="WAITING_RELEASE">Waiting Release</option>
-                        <option value="UNAVAILABLE">Unavailable</option>
-                        <option value="COMPLETED">Completed</option>
+                    <select
+                        class="filter-select w-full py-2.5 pl-9 pr-8 rounded bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 text-[0.85rem] outline-none cursor-pointer transition-all duration-150 appearance-none bg-[url('data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2212%22 height=%2212%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%239ca3b4%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M6 9l6 6 6-6%22/%3E%3C/svg%3E')] bg-no-repeat bg-[position:right_10px_center] focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/25"
+                        id="filter-status">
+                        <option value="" class="bg-white dark:bg-slate-850 text-slate-800 dark:text-slate-100">All Statuses</option>
+                        <option value="PENDING" selected class="bg-white dark:bg-slate-850 text-slate-800 dark:text-slate-100">Pending</option>
+                        <option value="WAITING_RELEASE" class="bg-white dark:bg-slate-850 text-slate-800 dark:text-slate-100">Waiting Release</option>
+                        <option value="UNAVAILABLE" class="bg-white dark:bg-slate-850 text-slate-800 dark:text-slate-100">Unavailable</option>
+                        <option value="COMPLETED" class="bg-white dark:bg-slate-850 text-slate-800 dark:text-slate-100">Completed</option>
                     </select>
                 </div>
-                <div class="filter-select-wrapper">
-                    <svg class="filter-icon" viewBox="0 0 24 24" fill="none" stroke="#EC4899" stroke-width="2.5"
-                        stroke-linecap="round" stroke-linejoin="round">
+                <div class="filter-select-wrapper flex-1 min-w-[125px] relative flex items-center">
+                    <svg class="filter-icon absolute left-3 w-3.5 h-3.5 pointer-events-none z-10" viewBox="0 0 24 24"
+                        fill="none" stroke="#EC4899" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M11 5h10"></path>
                         <path d="M11 9h7"></path>
                         <path d="M11 13h4"></path>
                         <path d="M3 17l3 3 3-3"></path>
                         <path d="M6 18V4"></path>
                     </svg>
-                    <select class="filter-select" id="filter-sort">
-                        <option value="newest">Newest First</option>
-                        <option value="oldest">Oldest First</option>
-                        <option value="title">Title A-Z</option>
-                        <option value="release">Release Date</option>
+                    <select
+                        class="filter-select w-full py-2.5 pl-9 pr-8 rounded bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 text-[0.85rem] outline-none cursor-pointer transition-all duration-150 appearance-none bg-[url('data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2212%22 height=%2212%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%239ca3b4%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M6 9l6 6 6-6%22/%3E%3C/svg%3E')] bg-no-repeat bg-[position:right_10px_center] focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/25"
+                        id="filter-sort">
+                        <option value="newest" class="bg-white dark:bg-slate-850 text-slate-800 dark:text-slate-100">Newest First</option>
+                        <option value="oldest" class="bg-white dark:bg-slate-850 text-slate-800 dark:text-slate-100">Oldest First</option>
+                        <option value="title" class="bg-white dark:bg-slate-850 text-slate-800 dark:text-slate-100">Title A-Z</option>
+                        <option value="release" class="bg-white dark:bg-slate-850 text-slate-800 dark:text-slate-100">Release Date</option>
                     </select>
                 </div>
             </div>
         </section>
 
         <!-- Request Cards -->
-        <main class="requests-grid" id="requests-grid">
+        <main class="requests-grid grid grid-cols-[repeat(auto-fill,minmax(min(100%,320px),1fr))] gap-4"
+            id="requests-grid">
             <!-- Populated by JS — skeleton loading shown initially -->
         </main>
 
         <!-- Empty State -->
-        <div class="empty-state hidden" id="empty-state">
-            <div class="empty-icon">🌀</div>
-            <h2>No requests found</h2>
-            <p>All clear! No unfulfilled requests match your filters.</p>
+        <div class="empty-state hidden [&.hidden]:hidden text-center py-16 px-5 text-slate-500 dark:text-slate-400" id="empty-state">
+            <div class="empty-icon text-5xl mb-4 animate-float">🌀</div>
+            <h2 class="text-xl font-semibold text-slate-900 dark:text-slate-100 mb-2">No requests found</h2>
+            <p class="text-sm text-slate-500 dark:text-slate-500">All clear! No unfulfilled requests match your filters.</p>
         </div>
 
         <!-- Loading Skeleton -->
-        <div class="skeleton-container" id="skeleton-container">
-            <div class="skeleton-card"></div>
-            <div class="skeleton-card"></div>
-            <div class="skeleton-card"></div>
-            <div class="skeleton-card"></div>
+        <div class="skeleton-container grid grid-cols-[repeat(auto-fill,minmax(min(100%,320px),1fr))] gap-4 [&.hidden]:hidden" id="skeleton-container">
+            <div class="skeleton-card p-4 rounded-xl bg-white/40 dark:bg-slate-800/20 border border-slate-200 dark:border-slate-800 flex gap-4 h-[144px] animate-pulse">
+                <div class="w-[60px] h-[90px] rounded bg-slate-200 dark:bg-slate-800 shrink-0"></div>
+                <div class="flex-1 flex flex-col gap-2 min-w-0">
+                    <div class="h-4 bg-slate-250 dark:bg-slate-800 rounded w-3/4"></div>
+                    <div class="h-3 bg-slate-250 dark:bg-slate-800 rounded w-1/2"></div>
+                    <div class="h-5 bg-slate-250 dark:bg-slate-800 rounded-full w-1/4 mt-1"></div>
+                </div>
+            </div>
+            <div class="skeleton-card p-4 rounded-xl bg-white/40 dark:bg-slate-800/20 border border-slate-200 dark:border-slate-800 flex gap-4 h-[144px] animate-pulse">
+                <div class="w-[60px] h-[90px] rounded bg-slate-200 dark:bg-slate-800 shrink-0"></div>
+                <div class="flex-1 flex flex-col gap-2 min-w-0">
+                    <div class="h-4 bg-slate-250 dark:bg-slate-800 rounded w-3/4"></div>
+                    <div class="h-3 bg-slate-250 dark:bg-slate-800 rounded w-1/2"></div>
+                    <div class="h-5 bg-slate-250 dark:bg-slate-800 rounded-full w-1/4 mt-1"></div>
+                </div>
+            </div>
+            <div class="skeleton-card p-4 rounded-xl bg-white/40 dark:bg-slate-800/20 border border-slate-200 dark:border-slate-800 flex gap-4 h-[144px] animate-pulse">
+                <div class="w-[60px] h-[90px] rounded bg-slate-200 dark:bg-slate-800 shrink-0"></div>
+                <div class="flex-1 flex flex-col gap-2 min-w-0">
+                    <div class="h-4 bg-slate-250 dark:bg-slate-800 rounded w-3/4"></div>
+                    <div class="h-3 bg-slate-250 dark:bg-slate-800 rounded w-1/2"></div>
+                    <div class="h-5 bg-slate-250 dark:bg-slate-800 rounded-full w-1/4 mt-1"></div>
+                </div>
+            </div>
+            <div class="skeleton-card p-4 rounded-xl bg-white/40 dark:bg-slate-800/20 border border-slate-200 dark:border-slate-800 flex gap-4 h-[144px] animate-pulse">
+                <div class="w-[60px] h-[90px] rounded bg-slate-200 dark:bg-slate-800 shrink-0"></div>
+                <div class="flex-1 flex flex-col gap-2 min-w-0">
+                    <div class="h-4 bg-slate-250 dark:bg-slate-800 rounded w-3/4"></div>
+                    <div class="h-3 bg-slate-250 dark:bg-slate-800 rounded w-1/2"></div>
+                    <div class="h-5 bg-slate-250 dark:bg-slate-800 rounded-full w-1/4 mt-1"></div>
+                </div>
+            </div>
         </div>
 
         <!-- Maintenance View -->
-        <section id="maintenance-view" class="maintenance-view hidden">
-            <h2 class="section-title">System Maintenance</h2>
-            <div class="maintenance-grid">
+        <section id="maintenance-view" class="maintenance-view hidden [&.hidden]:hidden">
+            <h2 class="section-title text-xl font-bold text-slate-850 dark:text-slate-100 mb-4">System Maintenance</h2>
+            <div class="maintenance-grid grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 <!-- Clean requests card -->
-                <div class="maintenance-card">
-                    <h3>Mass Remove Old Requests</h3>
-                    <p>Permanently remove unfulfilled requests created before a specific date, both from Seerr and the
-                        local database.</p>
-                    <div class="form-group">
-                        <label for="clean-date">Remove requests older than:</label>
-                        <input type="date" id="clean-date" class="form-input">
+                <div
+                    class="maintenance-card p-5 rounded-xl bg-white/60 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800/80 flex flex-col gap-4">
+                    <h3 class="text-base font-semibold text-slate-850 dark:text-slate-100 border-b border-slate-150 dark:border-slate-800 pb-2">Mass Remove Old Requests</h3>
+                    <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">Permanently remove unfulfilled requests created before a specific date, both from Seerr and the local database.</p>
+                    <div class="form-group flex flex-col gap-1.5">
+                        <label for="clean-date"
+                            class="text-[0.65rem] font-semibold text-slate-500 dark:text-slate-450 uppercase tracking-wider">Remove requests older than:</label>
+                        <input type="date" id="clean-date"
+                            class="form-input py-2 px-3 rounded bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 text-slate-850 dark:text-slate-100 text-sm outline-none focus:border-indigo-500 [color-scheme:dark]">
                     </div>
-                    <div class="form-group">
-                        <label>Statuses to remove:</label>
-                        <div class="checkbox-group">
-                            <label class="checkbox-label">
-                                <input type="checkbox" id="clean-status-pending" checked>
+                    <div class="form-group flex flex-col gap-1.5">
+                        <span class="text-[0.65rem] font-semibold text-slate-500 dark:text-slate-450 uppercase tracking-wider">Statuses to remove:</span>
+                        <div class="checkbox-group flex flex-wrap gap-4 mt-1">
+                            <label
+                                class="checkbox-label flex items-center gap-2 cursor-pointer text-xs text-slate-650 dark:text-slate-300 select-none">
+                                <input type="checkbox" id="clean-status-pending" checked
+                                    class="appearance-none w-4 h-4 rounded border border-slate-250 dark:border-slate-700 bg-white dark:bg-slate-800/50 checked:bg-indigo-600 checked:border-indigo-600 relative flex items-center justify-center cursor-pointer focus:ring-2 focus:ring-indigo-500/25 transition-all duration-150 after:content-[''] after:absolute after:w-[5px] after:h-[9px] after:border-r-2 after:border-b-2 after:border-white after:rotate-45 after:mb-[2px] after:hidden checked:after:block">
                                 <span>Pending</span>
                             </label>
-                            <label class="checkbox-label">
-                                <input type="checkbox" id="clean-status-waiting">
+                            <label
+                                class="checkbox-label flex items-center gap-2 cursor-pointer text-xs text-slate-650 dark:text-slate-300 select-none">
+                                <input type="checkbox" id="clean-status-waiting"
+                                    class="appearance-none w-4 h-4 rounded border border-slate-250 dark:border-slate-700 bg-white dark:bg-slate-800/50 checked:bg-indigo-600 checked:border-indigo-600 relative flex items-center justify-center cursor-pointer focus:ring-2 focus:ring-indigo-500/25 transition-all duration-150 after:content-[''] after:absolute after:w-[5px] after:h-[9px] after:border-r-2 after:border-b-2 after:border-white after:rotate-45 after:mb-[2px] after:hidden checked:after:block">
                                 <span>Waiting Release</span>
                             </label>
-                            <label class="checkbox-label">
-                                <input type="checkbox" id="clean-status-unavailable">
+                            <label
+                                class="checkbox-label flex items-center gap-2 cursor-pointer text-xs text-slate-650 dark:text-slate-300 select-none">
+                                <input type="checkbox" id="clean-status-unavailable"
+                                    class="appearance-none w-4 h-4 rounded border border-slate-250 dark:border-slate-700 bg-white dark:bg-slate-800/50 checked:bg-indigo-600 checked:border-indigo-600 relative flex items-center justify-center cursor-pointer focus:ring-2 focus:ring-indigo-500/25 transition-all duration-150 after:content-[''] after:absolute after:w-[5px] after:h-[9px] after:border-r-2 after:border-b-2 after:border-white after:rotate-45 after:mb-[2px] after:hidden checked:after:block">
                                 <span>Unavailable</span>
                             </label>
                         </div>
                     </div>
-                    <button class="btn btn-danger" id="btn-clean-requests" onclick="App.cleanOlderRequests()">Clean
-                        Requests</button>
+                    <button class="btn btn-danger w-full py-2.5 px-4 bg-red-500/20 hover:bg-red-500/30 border border-red-500/40 hover:border-red-500/75 rounded text-red-500 dark:text-red-400 hover:text-red-650 dark:hover:text-red-300 text-sm font-bold cursor-pointer transition-all duration-150 hover:-translate-y-px active:translate-y-0 mt-auto" id="btn-clean-requests" onclick="App.cleanOlderRequests()">Clean Requests</button>
                 </div>
 
                 <!-- Refresh Cache card -->
-                <div class="maintenance-card">
-                    <h3>Refresh Poster & Release Cache</h3>
-                    <p>Force reload TMDB poster paths and release dates from Seerr for all tracking requests.</p>
-                    <div class="cache-info" id="cache-info">
-                        <div class="cache-info-item">
-                            <span class="cache-info-label">Active Items</span>
-                            <strong class="cache-info-value" id="cache-active-count">—</strong>
+                <div
+                    class="maintenance-card p-5 rounded-xl bg-white/60 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800/80 flex flex-col gap-4">
+                    <h3 class="text-base font-semibold text-slate-850 dark:text-slate-100 border-b border-slate-150 dark:border-slate-800 pb-2">Refresh Poster & Release Cache</h3>
+                    <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">Force reload TMDB poster paths and release dates from Seerr for all tracking requests.</p>
+                    <div
+                        class="cache-info grid grid-cols-3 gap-2 bg-slate-100 dark:bg-slate-900/50 p-3 rounded-lg border border-slate-200 dark:border-slate-800/80 my-2">
+                        <div class="cache-info-item flex flex-col items-center text-center">
+                            <span class="cache-info-label text-[0.65rem] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Active Items</span>
+                            <strong class="cache-info-value text-sm font-bold text-slate-700 dark:text-slate-200 mt-0.5" id="cache-active-count">—</strong>
                         </div>
-                        <div class="cache-info-item">
-                            <span class="cache-info-label">Total Items</span>
-                            <strong class="cache-info-value" id="cache-total-count">—</strong>
+                        <div class="cache-info-item flex flex-col items-center text-center">
+                            <span class="cache-info-label text-[0.65rem] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Total Items</span>
+                            <strong class="cache-info-value text-sm font-bold text-slate-700 dark:text-slate-200 mt-0.5" id="cache-total-count">—</strong>
                         </div>
-                        <div class="cache-info-item">
-                            <span class="cache-info-label">Database Size</span>
-                            <strong class="cache-info-value" id="cache-size">—</strong>
+                        <div class="cache-info-item flex flex-col items-center text-center">
+                            <span class="cache-info-label text-[0.65rem] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">DB Size</span>
+                            <strong class="cache-info-value text-sm font-bold text-slate-700 dark:text-slate-200 mt-0.5" id="cache-size">—</strong>
                         </div>
                     </div>
-                    <button class="btn btn-primary" id="btn-refresh-cache" onclick="App.refreshPosterCache()">Refresh
-                        Cache</button>
+                    <button class="btn btn-primary w-full py-2.5 px-4 bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/30 hover:border-indigo-500/60 rounded text-indigo-500 dark:text-indigo-400 text-sm font-semibold cursor-pointer transition-all duration-150 hover:-translate-y-px active:translate-y-0 mt-auto" id="btn-refresh-cache" onclick="App.refreshPosterCache()">Refresh Cache</button>
                 </div>
 
                 <!-- Test Notifications card -->
-                <div class="maintenance-card">
-                    <h3>Test Discord Notifications</h3>
-                    <p>Verify that your Discord webhook is working correctly by sending test notifications.</p>
-                    <div class="test-buttons-group">
-                        <button class="btn btn-secondary" id="btn-test-notification-system"
-                            onclick="App.testNotification('system')">Test Notification</button>
-                        <button class="btn btn-secondary" id="btn-test-notification-movie"
-                            onclick="App.testNotification('movie')">Resend last Movie</button>
-                        <button class="btn btn-secondary" id="btn-test-notification-tv"
-                            onclick="App.testNotification('tv')">Resend last Show</button>
+                <div
+                    class="maintenance-card p-5 rounded-xl bg-white/60 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800/80 flex flex-col gap-4">
+                    <h3 class="text-base font-semibold text-slate-850 dark:text-slate-100 border-b border-slate-150 dark:border-slate-800 pb-2">Test Discord Notifications</h3>
+                    <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">Verify that your Discord webhook is working correctly by sending test notifications.</p>
+                    <div class="test-buttons-group flex flex-col gap-2 mt-auto">
+                        <button class="btn btn-secondary w-full py-2 px-3 bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/30 hover:border-indigo-500/50 rounded text-indigo-500 dark:text-indigo-400 hover:text-indigo-650 dark:hover:text-indigo-300 text-xs font-semibold cursor-pointer transition-all duration-150 hover:-translate-y-px active:translate-y-0" id="btn-test-notification-system"
+                            onclick="App.testNotification('system')">Test System Alert</button>
+                        <button class="btn btn-secondary w-full py-2 px-3 bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/30 hover:border-indigo-500/50 rounded text-indigo-500 dark:text-indigo-400 hover:text-indigo-650 dark:hover:text-indigo-300 text-xs font-semibold cursor-pointer transition-all duration-150 hover:-translate-y-px active:translate-y-0" id="btn-test-notification-movie"
+                            onclick="App.testNotification('movie')">Test Movie Alert</button>
+                        <button class="btn btn-secondary w-full py-2 px-3 bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/30 hover:border-indigo-500/50 rounded text-indigo-500 dark:text-indigo-400 hover:text-indigo-650 dark:hover:text-indigo-300 text-xs font-semibold cursor-pointer transition-all duration-150 hover:-translate-y-px active:translate-y-0" id="btn-test-notification-tv"
+                            onclick="App.testNotification('tv')">Test Show Alert</button>
                     </div>
                 </div>
             </div>
         </section>
 
         <!-- Toast Container -->
-        <div class="toast-container" id="toast-container"></div>
+        <div class="toast-container fixed bottom-5 right-5 left-5 sm:left-auto z-[999] flex flex-col gap-2.5 max-w-[calc(100%-40px)] sm:max-w-xs" id="toast-container"></div>
     </div>
 
     <!-- Scripts -->
-    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <script src="/js/utils.js"></script>
     <script src="/js/api.js"></script>
     <script src="/js/components.js"></script>

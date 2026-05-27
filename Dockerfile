@@ -1,3 +1,15 @@
+# Tailwind CSS build stage
+FROM debian:bookworm-slim AS tailwind
+RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
+ARG TAILWIND_VERSION=v4.3.0
+ARG TARGETARCH
+RUN ARCH=$(case "${TARGETARCH}" in amd64) echo "x64" ;; arm64) echo "arm64" ;; *) echo "x64" ;; esac) && \
+    curl -fsSL "https://github.com/tailwindlabs/tailwindcss/releases/download/${TAILWIND_VERSION}/tailwindcss-linux-${ARCH}" -o /usr/local/bin/tailwindcss && \
+    chmod +x /usr/local/bin/tailwindcss
+WORKDIR /build
+COPY frontend/ frontend/
+RUN tailwindcss --input frontend/css/tailwind.css --output frontend/css/styles.css --minify
+
 # Build stage
 FROM golang:1.26.3-alpine AS builder
 RUN apk add --no-cache gcc musl-dev
@@ -5,6 +17,7 @@ WORKDIR /build
 COPY go.mod go.sum ./
 RUN --mount=type=cache,target=/go/pkg/mod go mod download
 COPY . .
+COPY --from=tailwind /build/frontend/css/styles.css frontend/css/styles.css
 
 # Test stage (runs unit tests with caching)
 FROM builder AS tester
@@ -24,7 +37,7 @@ RUN apk add --no-cache ca-certificates wget
 COPY --from=compiler /build/limbo /usr/local/bin/limbo
 
 # OpenContainers metadata labels
-ARG VERSION=1.0.0
+ARG VERSION=dev
 ARG REVISION=unknown
 LABEL org.opencontainers.image.title="Limbo" \
       org.opencontainers.image.description="Seerr - Unfulfilled Request Dashboard & Notifier" \

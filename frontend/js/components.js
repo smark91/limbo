@@ -30,25 +30,31 @@ const Components = {
             if (container) container.classList.add('hidden');
             return;
         }
+        if (container) {
+            container.classList.remove('hidden');
+        }
+
         const items = [
-            { key: 'PENDING', label: 'Pending', count: stats.pending, dotClass: 'pending' },
-            { key: 'WAITING_RELEASE', label: 'Waiting', count: stats.waitingRelease, dotClass: 'waiting' },
-            { key: 'UNAVAILABLE', label: 'Unavailable', count: stats.unavailable, dotClass: 'unavailable' },
-            { key: 'COMPLETED', label: 'Done', count: stats.completed, dotClass: 'completed' }
+            { key: 'PENDING', count: stats.pending },
+            { key: 'WAITING_RELEASE', count: stats.waitingRelease },
+            { key: 'UNAVAILABLE', count: stats.unavailable },
+            { key: 'COMPLETED', count: stats.completed }
         ];
 
-        container.innerHTML = items.map(item => `
-            <div class="stat-card ${activeStatus === item.key ? 'active' : ''}" 
-                 data-status="${item.key}" 
-                 id="stat-${item.key}"
-                 onclick="App.filterByStatus('${item.key}')">
-                <div class="stat-count">${item.count || 0}</div>
-                <div class="stat-label">
-                    <span class="stat-dot ${item.dotClass}"></span>
-                    ${item.label}
-                </div>
-            </div>
-        `).join('');
+        items.forEach(item => {
+            const card = document.getElementById(`stat-${item.key}`);
+            if (!card) return;
+
+            // Populate the number
+            const countEl = card.querySelector('.stat-count');
+            if (countEl) {
+                countEl.textContent = item.count !== undefined ? item.count : 0;
+            }
+
+            // Update active state class toggled by JS
+            const isActive = activeStatus === item.key;
+            card.classList.toggle('active', isActive);
+        });
     },
 
     /**
@@ -78,8 +84,20 @@ const Components = {
 
         empty.classList.add('hidden');
 
+        const badgeColors = {
+            'PENDING': 'bg-amber-500/10 text-amber-500 border border-amber-500/20',
+            'WAITING_RELEASE': 'bg-sky-500/10 text-sky-500 border border-sky-500/20',
+            'UNAVAILABLE': 'bg-rose-500/10 text-rose-500 border border-rose-500/20',
+            'COMPLETED': 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20'
+        };
+        const badgeDotColors = {
+            'PENDING': 'bg-amber-500',
+            'WAITING_RELEASE': 'bg-sky-500',
+            'UNAVAILABLE': 'bg-rose-500',
+            'COMPLETED': 'bg-emerald-500'
+        };
+
         grid.innerHTML = requests.map((req, idx) => {
-            const typeEmoji = req.mediaType === 'tv' ? '📺' : '🎬';
             const releaseStr = req.releaseDate
                 ? `${releaseIcon(req.releaseSource || 'Unknown')} ${req.releaseSource || ''}: ${formatDate(req.releaseDate)}`
                 : '';
@@ -93,45 +111,42 @@ const Components = {
             // Build Seerr link
             const seerrLink = req.seerrUrl || '#';
 
-            // Determine arr link based on type
-
-
             return `
-                <div class="request-card" style="animation-delay: ${idx * 0.05}s" data-request-id="${req.seerrRequestId}">
-                    <div class="card-body">
-                        <div class="request-poster">
+                <div class="request-card group flex flex-col p-0 rounded-xl bg-white/60 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:shadow-lg transition-all duration-200 animate-fadeInUp opacity-0" style="animation-delay: ${idx * 0.05}s" data-request-id="${req.seerrRequestId}">
+                    <div class="flex gap-4 p-4 pb-2">
+                        <div class="w-[60px] min-w-[60px] h-[90px] rounded overflow-hidden bg-slate-100 dark:bg-slate-900 shrink-0">
                             ${posterSrc 
-                                ? `<img src="${posterSrc}" alt="${req.title}" loading="lazy" class="poster-img">`
-                                : `<div class="poster-placeholder">${req.mediaType === 'tv' ? Components.icons.tv : Components.icons.movie}</div>`
+                                ? `<img src="${posterSrc}" alt="${req.title}" loading="lazy" class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105">`
+                                : `<div class="w-full h-full flex items-center justify-center text-3xl text-slate-400 dark:text-slate-500 bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-900">${req.mediaType === 'tv' ? Components.icons.tv : Components.icons.movie}</div>`
                             }
                         </div>
-                        <div class="request-content">
-                            <div class="request-header">
-                                <span class="request-title" title="${req.title}">${req.title || 'Unknown Title'}</span>
-                                <span class="request-type-badge">${req.mediaType === 'tv' ? Components.icons.tv : Components.icons.movie}</span>
+                        <div class="flex-1 flex flex-col gap-1.5 min-w-0">
+                            <div class="flex items-start justify-between gap-3">
+                                <span class="text-[1.05rem] font-semibold text-slate-900 dark:text-slate-100 leading-snug truncate" title="${req.title}">${req.title || 'Unknown Title'}</span>
+                                <span class="text-sm shrink-0">${req.mediaType === 'tv' ? Components.icons.tv : Components.icons.movie}</span>
                             </div>
-                            <div class="request-meta">
-                                <span>${Components.icons.clock} ${timeAgo(req.createdAt)}</span>
-                                ${releaseStr ? `<span class="request-release">${releaseStr}</span>` : ''}
-                                ${fulfilledStr ? `<span class="request-fulfilled">${fulfilledStr}</span>` : ''}
+                            <div class="text-[0.8rem] text-slate-500 dark:text-slate-400 flex items-center gap-2 flex-wrap">
+                                <span class="flex items-center gap-1">${Components.icons.clock} ${timeAgo(req.createdAt)}</span>
+                                ${releaseStr ? `<span class="flex items-center gap-1">${releaseStr}</span>` : ''}
+                                ${fulfilledStr ? `<span class="flex items-center gap-1">${fulfilledStr}</span>` : ''}
                             </div>
-                            <div class="status-badge ${req.status}">
-                                <span class="status-dot"></span>
+                            <div class="status-badge ${req.status} inline-flex items-center gap-1.5 py-1 px-2.5 rounded-full text-[0.7rem] font-bold uppercase tracking-wider w-fit ${badgeColors[req.status] || ''}">
+                                <span class="w-1.5 h-1.5 rounded-full animate-pulse ${badgeDotColors[req.status] || ''}"></span>
                                 ${statusLabel(req.status)}
                             </div>
                         </div>
                     </div>
-                    <div class="request-footer">
-                        <div class="request-actions">
+                    <div class="p-4 pt-0.5 mt-auto">
+                        <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full">
                             ${Components._renderTriageAction(req)}
                             ${req.serviceUrl 
-                                ? `<a class="action-btn action-search" href="${req.serviceUrl}" title="Open in Service">
+                                ? `<a class="action-btn w-full sm:flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2.5 rounded border border-slate-200 dark:border-slate-700 bg-white/60 dark:bg-slate-800/40 text-slate-600 dark:text-slate-400 text-xs font-semibold cursor-pointer transition-all duration-150 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-slate-100 hover:border-slate-350 dark:hover:border-slate-600" href="${req.serviceUrl}" title="Open in Service">
                                      ${req.mediaType === 'tv' ? Components.icons.sonarr : Components.icons.radarr}
                                      <span>${req.mediaType === 'tv' ? 'Sonarr' : 'Radarr'}</span>
                                    </a>`
                                 : ''
                             }
-                            <a class="action-btn" href="${seerrLink}" title="Seerr">
+                            <a class="action-btn w-full sm:flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2.5 rounded border border-slate-200 dark:border-slate-700 bg-white/60 dark:bg-slate-800/40 text-slate-600 dark:text-slate-400 text-xs font-semibold cursor-pointer transition-all duration-150 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-slate-100 hover:border-slate-350 dark:hover:border-slate-600" href="${seerrLink}" title="Seerr">
                                 ${Components.icons.seerr}
                                 <span>Seerr</span>
                             </a>
@@ -149,23 +164,23 @@ const Components = {
         if (req.status === 'COMPLETED') return '';
 
         return `
-            <div class="triage-dropdown" id="triage-dropdown-${req.seerrRequestId}">
-                <button class="action-btn" onclick="Components.toggleTriageMenu(${req.seerrRequestId}, event)" title="Change Status">
+            <div class="triage-dropdown group/dropdown relative w-full sm:flex-1 flex" id="triage-dropdown-${req.seerrRequestId}">
+                <button class="action-btn flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2.5 rounded border border-slate-200 dark:border-slate-700 bg-white/60 dark:bg-slate-800/40 text-slate-600 dark:text-slate-400 text-xs font-semibold cursor-pointer transition-all duration-150 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-slate-100 hover:border-slate-350 dark:hover:border-slate-600" onclick="Components.toggleTriageMenu(${req.seerrRequestId}, event)" title="Change Status">
                     ${Components.icons.triage}
                     <span>Status</span>
                     ${Components.icons.chevron}
                 </button>
-                <div class="triage-menu">
-                    <button class="triage-option" data-status="PENDING" onclick="App.setTriage(${req.seerrRequestId}, 'PENDING')">
-                        <span class="option-dot"></span>
+                <div class="triage-menu absolute bottom-[calc(100%+6px)] left-0 min-w-[180px] p-1.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-xl z-50 opacity-0 invisible translate-y-2 transition-all duration-150 group-[.open]/dropdown:opacity-100 group-[.open]/dropdown:visible group-[.open]/dropdown:translate-y-0">
+                    <button class="triage-option flex items-center gap-2 w-full py-2 px-3 border-none rounded bg-transparent text-slate-700 dark:text-slate-200 text-xs font-medium cursor-pointer transition-colors duration-150 hover:bg-slate-100 dark:hover:bg-slate-750" data-status="PENDING" onclick="App.setTriage(${req.seerrRequestId}, 'PENDING')">
+                        <span class="w-2 h-2 rounded-full bg-amber-500"></span>
                         <span>Pending</span>
                     </button>
-                    <button class="triage-option" data-status="WAITING_RELEASE" onclick="App.setTriage(${req.seerrRequestId}, 'WAITING_RELEASE')">
-                        <span class="option-dot"></span>
+                    <button class="triage-option flex items-center gap-2 w-full py-2 px-3 border-none rounded bg-transparent text-slate-700 dark:text-slate-200 text-xs font-medium cursor-pointer transition-colors duration-150 hover:bg-slate-100 dark:hover:bg-slate-750" data-status="WAITING_RELEASE" onclick="App.setTriage(${req.seerrRequestId}, 'WAITING_RELEASE')">
+                        <span class="w-2 h-2 rounded-full bg-sky-500"></span>
                         <span>Waiting Release</span>
                     </button>
-                    <button class="triage-option" data-status="UNAVAILABLE" onclick="App.setTriage(${req.seerrRequestId}, 'UNAVAILABLE')">
-                        <span class="option-dot"></span>
+                    <button class="triage-option flex items-center gap-2 w-full py-2 px-3 border-none rounded bg-transparent text-slate-700 dark:text-slate-200 text-xs font-medium cursor-pointer transition-colors duration-150 hover:bg-slate-100 dark:hover:bg-slate-750" data-status="UNAVAILABLE" onclick="App.setTriage(${req.seerrRequestId}, 'UNAVAILABLE')">
+                        <span class="w-2 h-2 rounded-full bg-rose-500"></span>
                         <span>Unavailable</span>
                     </button>
                 </div>

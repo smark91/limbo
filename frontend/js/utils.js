@@ -88,10 +88,18 @@ function debounce(fn, delay = 300) {
 function showToast(message, type = 'info') {
     const container = document.getElementById('toast-container');
     const toast = document.createElement('div');
-    toast.className = `toast toast-${type}`;
+    
+    const baseClasses = 'flex items-center gap-2.5 py-3 px-4 rounded-xl border shadow-xl text-xs font-semibold select-none transition-all duration-300 transform translate-y-0 opacity-100 [&.removing]:translate-y-2 [&.removing]:opacity-0';
+    const typeClasses = {
+        success: 'bg-slate-900/90 text-emerald-400 border-emerald-800/50',
+        error: 'bg-slate-900/90 text-rose-400 border-rose-800/50',
+        info: 'bg-slate-900/90 text-indigo-400 border-slate-700/50'
+    };
+    
+    toast.className = `${baseClasses} ${typeClasses[type] || typeClasses.info}`;
 
     const icons = { success: '✓', error: '✕', info: 'ℹ' };
-    toast.innerHTML = `<span>${icons[type] || ''}</span><span>${message}</span>`;
+    toast.innerHTML = `<span class="text-sm font-bold">${icons[type] || ''}</span><span>${message}</span>`;
 
     container.appendChild(toast);
 
