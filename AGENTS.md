@@ -71,8 +71,8 @@ All configuration is parsed from environment variables inside `internal/config`.
 | `DISCORD_WEBHOOK_URL`| Destination for webhook embeds | None | No (Omit to disable notifications) |
 | `RELEASE_COUNTRY` | 2-letter ISO country code for release priority | `US` | No |
 | `SCAN_INTERVAL_MINUTES` | Frequency of background Seerr syncs | `10` | No |
-| `ALERT_THRESHOLD_MINUTES`| Minimum request age before Discord notification (gives automation time to download first) | `10` | No |
-| `ALERT_WINDOW_MINUTES` | Age window after threshold to qualify for notification (prevents spamming old requests) | `1440` | No |
+| `ALERT_DELAY_MINUTES` | Minimum request age before Discord notification (gives automation time to download first) | `10` | No |
+| `ALERT_MAX_AGE_MINUTES` | Maximum request age to qualify for notification (prevents spamming old requests) | `1440` | No |
 | `LIMBO_PORT` | Port for the HTTP web server | `3000` | No |
 | `LOG_LEVEL` | Log verbosity (`debug`, `info`, `warn`, `error`) | `info` | No |
 | `LOG_FORMAT` | Format of log output (`text` or `json`) | `text` | No |
@@ -96,7 +96,7 @@ All configuration is parsed from environment variables inside `internal/config`.
   - Parses release dates using priority: `Digital > Physical > Theatrical` for movies, and season-specific air dates for TV shows.
   - Automatically transitions pending requests with future release dates to `WAITING_RELEASE`.
   - Resolves stale database entries no longer present in Seerr's approved request list.
-- Webhook notifications are dispatched once per request within the target timing window: `[threshold, threshold + window]`.
+- Webhook notifications are dispatched once per request within the target timing window: `[delay, max_age]`.
 
 ### 3. Graceful Shutdown
 - Catches `SIGINT` and `SIGTERM`.

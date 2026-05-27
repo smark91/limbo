@@ -27,8 +27,8 @@ type Config struct {
 	// App
 	ReleaseCountry      string
 	ScanInterval        time.Duration
-	AlertThreshold      time.Duration
-	AlertWindow         time.Duration
+	AlertDelay          time.Duration
+	AlertMaxAge         time.Duration
 	Port                string
 
 	// Logging
@@ -54,8 +54,8 @@ func Load() *Config {
 		// App
 		ReleaseCountry: envOrDefault("RELEASE_COUNTRY", "US"),
 		ScanInterval:   envOrDuration("SCAN_INTERVAL_MINUTES", 10),
-		AlertThreshold: envOrDuration("ALERT_THRESHOLD_MINUTES", 10),
-		AlertWindow:    envOrDuration("ALERT_WINDOW_MINUTES", 1440),
+		AlertDelay:     envOrDuration("ALERT_DELAY_MINUTES", 10),
+		AlertMaxAge:    envOrDuration("ALERT_MAX_AGE_MINUTES", 1440),
 		Port:           envOrDefault("LIMBO_PORT", "3000"),
 
 		// Logging

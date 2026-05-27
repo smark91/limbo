@@ -395,14 +395,14 @@ func (s *Scanner) shouldNotify(entry database.TriageEntry, req seerr.SeerrReques
 		return false
 	}
 
-	// Check age window: request must be old enough (threshold) but not too old (threshold + window)
+	// Check age window: request must be old enough (delay) but not too old (max age)
 	requestTime := parseTime(req.CreatedAt)
 	age := time.Since(requestTime)
 
-	if age < s.cfg.AlertThreshold {
+	if age < s.cfg.AlertDelay {
 		return false
 	}
-	if age > s.cfg.AlertThreshold+s.cfg.AlertWindow {
+	if age > s.cfg.AlertMaxAge {
 		return false
 	}
 

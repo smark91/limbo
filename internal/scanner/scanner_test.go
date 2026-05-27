@@ -72,8 +72,8 @@ func TestRevertCompletedRequest(t *testing.T) {
 		SeerrURL:          server.URL,
 		SeerrAPIKey:       "test-key",
 		ScanInterval:      10 * time.Minute,
-		AlertThreshold:    10 * time.Minute,
-		AlertWindow:       10 * time.Minute,
+		AlertDelay:        10 * time.Minute,
+		AlertMaxAge:       10 * time.Minute,
 		DiscordWebhookURL: "http://mock-webhook",
 	}
 	seerrClient := seerr.NewClient(cfg)
