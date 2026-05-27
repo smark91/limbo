@@ -55,7 +55,7 @@ func Load() *Config {
 		ReleaseCountry: envOrDefault("RELEASE_COUNTRY", "US"),
 		ScanInterval:   envOrDuration("SCAN_INTERVAL_MINUTES", 10),
 		AlertThreshold: envOrDuration("ALERT_THRESHOLD_MINUTES", 10),
-		AlertWindow:    envOrDuration("ALERT_WINDOW_MINUTES", 10),
+		AlertWindow:    envOrDuration("ALERT_WINDOW_MINUTES", 1440),
 		Port:           envOrDefault("LIMBO_PORT", "3000"),
 
 		// Logging

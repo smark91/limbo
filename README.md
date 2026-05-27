@@ -45,8 +45,8 @@ All settings are configured using environment variables:
 | `DISCORD_WEBHOOK_URL`| Destination webhook for release embeds | None | No |
 | `RELEASE_COUNTRY` | 2-letter ISO country code for release priority | `US` | No |
 | `SCAN_INTERVAL_MINUTES` | Frequency of background Seerr sync scans | `10` | No |
-| `ALERT_THRESHOLD_MINUTES`| Age (in minutes) a request must be before triggering notifications | `10` | No |
-| `ALERT_WINDOW_MINUTES` | Age window (in minutes) qualifying for notifications | `10` | No |
+| `ALERT_THRESHOLD_MINUTES`| Minimum request age (in minutes) before Discord notification (gives automation time to download first) | `10` | No |
+| `ALERT_WINDOW_MINUTES` | Age window (in minutes) after threshold qualifying for notifications (prevents spamming old requests) | `1440` | No |
 | `LIMBO_PORT` | Port for the HTTP web server | `3000` | No |
 | `LOG_LEVEL` | Log verbosity (`debug`, `info`, `warn`, `error`) | `info` | No |
 
