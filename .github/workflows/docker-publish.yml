@@ -207,20 +207,17 @@ jobs:
           # Build target tags array
           TAGS=("-t" "${TAG_BASE}:${VERSION_TAG}")
           
-          # Handle semver tag aliases (e.g. major, major.minor)
-          if [[ "${VERSION_TAG}" =~ ^[0-9]+\.[0-9]+\.[0-9]+ ]]; then
+          # Handle semver tag aliases (e.g. major, major.minor) only for stable releases
+          if [[ "${VERSION_TAG}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] && [ "${{ steps.get_version.outputs.prerelease }}" = "false" ]; then
             MAJOR_MINOR=$(echo ${VERSION_TAG} | cut -d. -f1-2)
             MAJOR=$(echo ${VERSION_TAG} | cut -d. -f1)
             
             TAGS+=("-t" "${TAG_BASE}:${MAJOR_MINOR}")
             TAGS+=("-t" "${TAG_BASE}:${MAJOR}")
-            
-            # Also tag latest if not pre-release
-            if [[ "${{ steps.get_version.outputs.prerelease }}" == "false" ]]; then
-              TAGS+=("-t" "${TAG_BASE}:latest")
-            fi
+            TAGS+=("-t" "${TAG_BASE}:latest")
           else
-            # For branch/manual dev builds, tag as dev-latest (without overwriting production latest)
+            # For pre-releases, branch/manual dev builds, or invalid semver:
+            # Tag as dev-latest (without overwriting production latest, major, or minor tags)
             TAGS+=("-t" "${TAG_BASE}:dev-latest")
           fi
           
