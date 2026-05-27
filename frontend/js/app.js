@@ -72,35 +72,6 @@ const App = {
             });
         }
 
-        // PWA Install prompt handling
-        window.addEventListener('beforeinstallprompt', (e) => {
-            e.preventDefault();
-            this.deferredPrompt = e;
-            const installBtn = document.getElementById('btn-install');
-            if (installBtn) {
-                installBtn.classList.remove('hidden');
-            }
-        });
-
-        const installBtn = document.getElementById('btn-install');
-        if (installBtn) {
-            installBtn.addEventListener('click', async () => {
-                if (!this.deferredPrompt) return;
-                this.deferredPrompt.prompt();
-                const { outcome } = await this.deferredPrompt.userChoice;
-                console.log(`PWA: Install choice outcome: ${outcome}`);
-                this.deferredPrompt = null;
-                installBtn.classList.add('hidden');
-            });
-        }
-
-        window.addEventListener('appinstalled', () => {
-            console.log('✅ PWA: App installed successfully');
-            if (installBtn) {
-                installBtn.classList.add('hidden');
-            }
-        });
-
         // Sync button
         document.getElementById('btn-sync').addEventListener('click', () => this.triggerSync());
 
