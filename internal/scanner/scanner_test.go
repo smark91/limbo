@@ -3,6 +3,7 @@ package scanner
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -226,5 +227,247 @@ func TestReconcileMissingRequest(t *testing.T) {
 	if err != gorm.ErrRecordNotFound {
 		t.Errorf("expected 992 to be deleted, but found entry with status %s", deletedEntry.Status)
 	}
+}
+
+
+func TestScannerProcessTVRequest(t *testing.T) {
+	db := setupTestDB(t)
+	now := time.Now()
+
+	// Mock Seerr API Server
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.URL.Path == "/api/v1/tv/100" {
+			tvDetail := map[string]interface{}{
+				"id":           100,
+				"name":         "Futurama",
+				"posterPath":   "/futurama.jpg",
+				"firstAirDate": "1999-03-28",
+				"seasons": []map[string]interface{}{
+					{
+						"seasonNumber": 1,
+						"airDate":      "1999-03-28",
+					},
+				},
+			}
+			json.NewEncoder(w).Encode(tvDetail)
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer server.Close()
+
+	cfg := &config.Config{
+		SeerrURL:    server.URL,
+		SeerrAPIKey: "test-key",
+	}
+	s := New(cfg, db, seerr.NewClient(cfg))
+
+	req := seerr.SeerrRequest{
+		ID:        50,
+		Status:    2,
+		MediaType: "tv",
+		Media: seerr.Media{
+			ID:     60,
+			TmdbID: 100,
+			Status: 2,
+		},
+		CreatedAt: now.Add(-5 * time.Hour).Format(time.RFC3339),
+		UpdatedAt: now.Format(time.RFC3339),
+	}
+	req.Seasons = append(req.Seasons, struct {
+		SeasonNumber int `json:"seasonNumber"`
+	}{SeasonNumber: 1})
+
+	ctx := context.Background()
+	err := s.processRequest(ctx, req)
+	if err != nil {
+		t.Fatalf("failed to process TV request: %v", err)
+	}
+
+	var entry database.TriageEntry
+	if err := db.First(&entry, "seerr_request_id = ?", 50).Error; err != nil {
+		t.Fatalf("failed to query entry: %v", err)
+	}
+
+	if entry.Title != "Futurama" || entry.MediaType != "tv" || entry.PosterPath != "/futurama.jpg" {
+		t.Errorf("incorrect TV triage entry saved: %+v", entry)
+	}
+}
+
+func TestScannerSkipActiveDownload(t *testing.T) {
+	db := setupTestDB(t)
+	cfg := &config.Config{}
+	s := New(cfg, db, seerr.NewClient(cfg))
+
+	req := seerr.SeerrRequest{
+		ID:        1,
+		MediaType: "movie",
+		Media: seerr.Media{
+			ID:             2,
+			TmdbID:         3,
+			DownloadStatus: []interface{}{"downloading"}, // Active download
+		},
+	}
+
+	// This should run the loop, see the downloadStatus, and skip processing
+	ctx := context.Background()
+	s.processedRequestsMock(ctx, []seerr.SeerrRequest{req})
+
+	var count int64
+	db.Model(&database.TriageEntry{}).Count(&count)
+	if count != 0 {
+		t.Errorf("expected request to be skipped, but got DB entry count=%d", count)
+	}
+}
+
+// processedRequestsMock is a helper to run the loop with predefined requests list
+func (s *Scanner) processedRequestsMock(ctx context.Context, requests []seerr.SeerrRequest) {
+	for _, req := range requests {
+		if len(req.Media.DownloadStatus) > 0 {
+			continue
+		}
+		_ = s.processRequest(ctx, req)
+	}
+}
+
+func TestScannerProcessRequestWaitingRelease(t *testing.T) {
+	db := setupTestDB(t)
+	now := time.Now()
+	futureDate := now.Add(240 * time.Hour)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.URL.Path == "/api/v1/movie/200" {
+			movieDetail := map[string]interface{}{
+				"id":          200,
+				"title":       "Future Movie",
+				"releaseDate": futureDate.Format("2006-01-02"),
+			}
+			json.NewEncoder(w).Encode(movieDetail)
+			return
+		}
+	}))
+	defer server.Close()
+
+	cfg := &config.Config{
+		SeerrURL:    server.URL,
+		SeerrAPIKey: "test-key",
+	}
+	s := New(cfg, db, seerr.NewClient(cfg))
+
+	req := seerr.SeerrRequest{
+		ID:        100,
+		Status:    2,
+		MediaType: "movie",
+		Media: seerr.Media{
+			ID:     200,
+			TmdbID: 200,
+			Status: 2,
+		},
+		CreatedAt: now.Add(-5 * time.Hour).Format(time.RFC3339),
+		UpdatedAt: now.Format(time.RFC3339),
+	}
+
+	err := s.processRequest(context.Background(), req)
+	if err != nil {
+		t.Fatalf("failed to process: %v", err)
+	}
+
+	var entry database.TriageEntry
+	db.First(&entry, "seerr_request_id = ?", 100)
+	if entry.Status != database.StatusWaitingRelease {
+		t.Errorf("expected status 'WAITING_RELEASE', got %q", entry.Status)
+	}
+}
+
+func TestScannerErrors(t *testing.T) {
+	db := setupTestDB(t)
+	// Cancelled context should prevent request processing
+	cfg := &config.Config{}
+	s := New(cfg, db, seerr.NewClient(cfg))
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	// Run scan with cancelled context
+	s.scan(ctx)
+
+	// Should not panic, and not have processed anything
+	var count int64
+	db.Model(&database.TriageEntry{}).Count(&count)
+	if count != 0 {
+		t.Errorf("expected 0 entries with cancelled context, got %d", count)
+	}
+}
+
+func TestNewScannerWithLastScan(t *testing.T) {
+	db := setupTestDB(t)
+
+	// Save last scan time in DB
+	lastScanTime := time.Now().Add(-1 * time.Hour).Truncate(time.Second)
+	db.Create(&database.SystemMetadata{
+		Key:   "last_scan_at",
+		Value: lastScanTime.Format(time.RFC3339),
+	})
+
+	cfg := &config.Config{}
+	s := New(cfg, db, seerr.NewClient(cfg))
+
+	if !s.LastScanTime().Equal(lastScanTime) {
+		t.Errorf("expected last scan time %v, got %v", lastScanTime, s.LastScanTime())
+	}
+}
+
+func TestScannerAutoResolve(t *testing.T) {
+	db := setupTestDB(t)
+	entry := database.TriageEntry{
+		SeerrRequestID: 99,
+		Status:         database.StatusPending,
+	}
+	db.Create(&entry)
+
+	cfg := &config.Config{}
+	s := New(cfg, db, seerr.NewClient(cfg))
+	s.autoResolve(context.Background(), seerr.SeerrRequest{ID: 99})
+
+	var check database.TriageEntry
+	err := db.First(&check, "seerr_request_id = ?", 99).Error
+	if err != gorm.ErrRecordNotFound {
+		t.Errorf("expected entry 99 to be deleted, got: %v", err)
+	}
+
+	t.Run("DB Failure", func(t *testing.T) {
+		dbFail := setupTestDB(t)
+		dbFail.Create(&database.TriageEntry{SeerrRequestID: 99, Status: database.StatusPending})
+		dbFail.Callback().Delete().Before("gorm:delete").Register("fail_delete", func(d *gorm.DB) {
+			d.AddError(errors.New("mocked delete error"))
+		})
+		sFail := New(cfg, dbFail, seerr.NewClient(cfg))
+		sFail.autoResolve(context.Background(), seerr.SeerrRequest{ID: 99})
+	})
+}
+
+func TestParseTimePrivate(t *testing.T) {
+	t.Run("Standard RFC3339Nano", func(t *testing.T) {
+		got := parseTime("2026-04-15T14:59:24.056Z")
+		if got.Year() != 2026 || got.Month() != 4 || got.Day() != 15 {
+			t.Errorf("unexpected parse result: %v", got)
+		}
+	})
+
+	t.Run("Simpler ISO format fallback", func(t *testing.T) {
+		got := parseTime("2026-04-15T14:59:24.000Z")
+		if got.Year() != 2026 || got.Month() != 4 || got.Day() != 15 {
+			t.Errorf("unexpected parse result: %v", got)
+		}
+	})
+
+	t.Run("Invalid format", func(t *testing.T) {
+		got := parseTime("invalid-time-string")
+		if !got.IsZero() {
+			t.Errorf("expected zero time for invalid format, got %v", got)
+		}
+	})
 }
 

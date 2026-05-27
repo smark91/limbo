@@ -1,6 +1,7 @@
 package database
 
 import (
+	"errors"
 	"testing"
 
 	"gorm.io/driver/sqlite"
@@ -50,4 +51,44 @@ func TestGetOrGenerateVapidKeys(t *testing.T) {
 	if pubKey2 != pubKey1 || privKey2 != privKey1 {
 		t.Fatalf("expected loaded keys to be identical to generated keys, got: pub=%q (expected %q), priv=%q (expected %q)", pubKey2, pubKey1, privKey2, privKey1)
 	}
+
+	t.Run("Query error on public key loading", func(t *testing.T) {
+		db, _ := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+		db.AutoMigrate(&SystemMetadata{})
+		db.Callback().Query().Before("gorm:query").Register("fail_pub_query", func(d *gorm.DB) {
+			d.AddError(errors.New("mocked query error"))
+		})
+		_, _, err := GetOrGenerateVapidKeys(db)
+		if err == nil {
+			t.Errorf("expected error, got nil")
+		}
+	})
+
+	t.Run("Query error on private key loading", func(t *testing.T) {
+		db, _ := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+		db.AutoMigrate(&SystemMetadata{})
+		queryCount := 0
+		db.Callback().Query().Before("gorm:query").Register("fail_priv_query", func(d *gorm.DB) {
+			queryCount++
+			if queryCount == 2 {
+				d.AddError(errors.New("mocked query error"))
+			}
+		})
+		_, _, err := GetOrGenerateVapidKeys(db)
+		if err == nil {
+			t.Errorf("expected error, got nil")
+		}
+	})
+
+	t.Run("Transaction save error", func(t *testing.T) {
+		db, _ := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+		db.AutoMigrate(&SystemMetadata{})
+		db.Callback().Create().Before("gorm:create").Register("fail_create", func(d *gorm.DB) {
+			d.AddError(errors.New("mocked create error"))
+		})
+		_, _, err := GetOrGenerateVapidKeys(db)
+		if err == nil {
+			t.Errorf("expected error during save transaction, got nil")
+		}
+	})
 }

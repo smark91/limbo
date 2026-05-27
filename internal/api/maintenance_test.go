@@ -3,6 +3,7 @@ package api
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -13,6 +14,8 @@ import (
 	"limbo/internal/database"
 	"limbo/internal/scanner"
 	"limbo/internal/seerr"
+
+	"gorm.io/gorm"
 )
 
 func TestCleanOlderHandler(t *testing.T) {
@@ -534,6 +537,357 @@ func TestTestNotificationHandler(t *testing.T) {
 
 		if rr.Code != http.StatusBadRequest {
 			t.Errorf("expected status 400 when webhook is unconfigured, got %d", rr.Code)
+		}
+	})
+
+	// Sub-test 4: Invalid JSON body
+	t.Run("Invalid JSON body", func(t *testing.T) {
+		req, _ := http.NewRequest("POST", "/api/maintenance/test-notification", bytes.NewBuffer([]byte("{invalid")))
+		rr := httptest.NewRecorder()
+
+		handler := handleTestNotification(db, scannerInstance, seerrClient)
+		handler.ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusBadRequest {
+			t.Errorf("expected status 400, got %d", rr.Code)
+		}
+	})
+
+	// Sub-test 5: Invalid test type
+	t.Run("Invalid test type", func(t *testing.T) {
+		reqBody, _ := json.Marshal(map[string]string{"type": "invalid_type"})
+		req, _ := http.NewRequest("POST", "/api/maintenance/test-notification", bytes.NewBuffer(reqBody))
+		rr := httptest.NewRecorder()
+
+		handler := handleTestNotification(db, scannerInstance, seerrClient)
+		handler.ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusBadRequest {
+			t.Errorf("expected status 400, got %d", rr.Code)
+		}
+	})
+
+	// Sub-test 6: Target movie/tv not found in DB
+	t.Run("Movie/TV not found in DB", func(t *testing.T) {
+		// Create a separate db without seeding movie/tv requests
+		emptyDb := setupTestDB(t)
+		emptyScanner := scanner.New(cfg, emptyDb, seerrClient)
+
+		reqBody, _ := json.Marshal(map[string]string{"type": "movie"})
+		req, _ := http.NewRequest("POST", "/api/maintenance/test-notification", bytes.NewBuffer(reqBody))
+		rr := httptest.NewRecorder()
+
+		handler := handleTestNotification(emptyDb, emptyScanner, seerrClient)
+		handler.ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusNotFound {
+			t.Errorf("expected status 404, got %d", rr.Code)
+		}
+	})
+
+	// Sub-test 7: Seerr API error on movie/tv request fetch (fails gracefully to Seerr User)
+	t.Run("Seerr API error on request DisplayName fetch", func(t *testing.T) {
+		// Mock Seerr server returns error on 501
+		errServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusInternalServerError)
+		}))
+		defer errServer.Close()
+
+		errCfg := &config.Config{
+			DBDriver:          "sqlite",
+			DiscordWebhookURL: discordServer.URL,
+			SeerrURL:          errServer.URL,
+			SeerrAPIKey:       "test-api-key",
+		}
+		errSeerrClient := seerr.NewClient(errCfg)
+		errScanner := scanner.New(errCfg, db, errSeerrClient)
+
+		reqBody, _ := json.Marshal(map[string]string{"type": "movie"})
+		req, _ := http.NewRequest("POST", "/api/maintenance/test-notification", bytes.NewBuffer(reqBody))
+		rr := httptest.NewRecorder()
+
+		handler := handleTestNotification(db, errScanner, errSeerrClient)
+		handler.ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusOK {
+			t.Fatalf("expected status 200, got %d", rr.Code)
+		}
+	})
+
+	t.Run("Database error in test notification", func(t *testing.T) {
+		db := setupTestDB(t)
+		db.Callback().Query().Before("gorm:query").Register("fail_query", func(d *gorm.DB) {
+			d.AddError(errors.New("mocked error"))
+		})
+
+		cfg := &config.Config{DiscordWebhookURL: "http://discord-webhook.com"}
+		sc := scanner.New(cfg, db, seerr.NewClient(cfg))
+
+		reqBody, _ := json.Marshal(map[string]interface{}{
+			"type": "movie",
+		})
+		req, _ := http.NewRequest("POST", "/api/maintenance/test-notification", bytes.NewBuffer(reqBody))
+		rr := httptest.NewRecorder()
+		handler := handleTestNotification(db, sc, seerr.NewClient(cfg))
+		handler.ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusInternalServerError {
+			t.Errorf("expected 500 status on database failure, got %d", rr.Code)
+		}
+	})
+}
+
+func TestCleanOlderEdgeCases(t *testing.T) {
+	db := setupTestDB(t)
+
+	// Mock Seerr server returning error to test error resilience
+	errServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer errServer.Close()
+	seerrClient := seerr.NewClient(&config.Config{SeerrURL: errServer.URL})
+
+	t.Run("Invalid JSON body", func(t *testing.T) {
+		req, _ := http.NewRequest("POST", "/api/maintenance/clean-older", bytes.NewBuffer([]byte("{invalid")))
+		rr := httptest.NewRecorder()
+		handler := handleCleanOlder(db, seerrClient)
+		handler.ServeHTTP(rr, req)
+		if rr.Code != http.StatusBadRequest {
+			t.Errorf("expected 400, got %d", rr.Code)
+		}
+	})
+
+	t.Run("Missing olderThan date", func(t *testing.T) {
+		reqBody, _ := json.Marshal(map[string]interface{}{
+			"statuses": []string{"PENDING"},
+		})
+		req, _ := http.NewRequest("POST", "/api/maintenance/clean-older", bytes.NewBuffer(reqBody))
+		rr := httptest.NewRecorder()
+		handler := handleCleanOlder(db, seerrClient)
+		handler.ServeHTTP(rr, req)
+		if rr.Code != http.StatusBadRequest {
+			t.Errorf("expected 400, got %d", rr.Code)
+		}
+	})
+
+	t.Run("Invalid status", func(t *testing.T) {
+		reqBody, _ := json.Marshal(map[string]interface{}{
+			"olderThan": time.Now().Format(time.RFC3339),
+			"statuses":  []string{"INVALID_STATUS"},
+		})
+		req, _ := http.NewRequest("POST", "/api/maintenance/clean-older", bytes.NewBuffer(reqBody))
+		rr := httptest.NewRecorder()
+		handler := handleCleanOlder(db, seerrClient)
+		handler.ServeHTTP(rr, req)
+		if rr.Code != http.StatusBadRequest {
+			t.Errorf("expected 400, got %d", rr.Code)
+		}
+	})
+
+	t.Run("Empty statuses defaults to PENDING", func(t *testing.T) {
+		// Seed old pending entry
+		db.Create(&database.TriageEntry{
+			SeerrRequestID: 900,
+			Status:         database.StatusPending,
+			SeerrCreatedAt: time.Now().Add(-48 * time.Hour),
+		})
+
+		reqBody, _ := json.Marshal(map[string]interface{}{
+			"olderThan": time.Now().Add(-24 * time.Hour).Format(time.RFC3339),
+		})
+		req, _ := http.NewRequest("POST", "/api/maintenance/clean-older", bytes.NewBuffer(reqBody))
+		rr := httptest.NewRecorder()
+		handler := handleCleanOlder(db, seerrClient)
+		handler.ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusOK {
+			t.Fatalf("expected 200, got %d", rr.Code)
+		}
+		var resp map[string]interface{}
+		json.Unmarshal(rr.Body.Bytes(), &resp)
+		if resp["deletedCount"].(float64) != 1 {
+			t.Errorf("expected 1 deleted count, got %v", resp["deletedCount"])
+		}
+	})
+
+	t.Run("Database Failures", func(t *testing.T) {
+		dbClosed := setupTestDB(t)
+		sqlDB, _ := dbClosed.DB()
+		sqlDB.Close()
+
+		reqBody, _ := json.Marshal(map[string]interface{}{
+			"olderThan": time.Now().Format(time.RFC3339),
+		})
+		req, _ := http.NewRequest("POST", "/api/maintenance/clean-older", bytes.NewBuffer(reqBody))
+		rr := httptest.NewRecorder()
+		handler := handleCleanOlder(dbClosed, seerrClient)
+		handler.ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusInternalServerError {
+			t.Errorf("expected 500, got %d", rr.Code)
+		}
+	})
+
+	t.Run("Delete failure in clean-older", func(t *testing.T) {
+		db := setupTestDB(t)
+		db.Create(&database.TriageEntry{
+			SeerrRequestID: 100,
+			Status:         database.StatusPending,
+			SeerrCreatedAt: time.Now().Add(-48 * time.Hour),
+		})
+		db.Callback().Delete().Before("gorm:delete").Register("fail_delete", func(d *gorm.DB) {
+			d.AddError(errors.New("mocked delete error"))
+		})
+
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusOK)
+		}))
+		defer server.Close()
+		seerrClient := seerr.NewClient(&config.Config{SeerrURL: server.URL})
+
+		reqBody, _ := json.Marshal(map[string]interface{}{
+			"olderThan": time.Now().Add(-24 * time.Hour).Format(time.RFC3339),
+		})
+		req, _ := http.NewRequest("POST", "/api/maintenance/clean-older", bytes.NewBuffer(reqBody))
+		rr := httptest.NewRecorder()
+		handler := handleCleanOlder(db, seerrClient)
+		handler.ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusOK {
+			t.Fatalf("expected 200, got %d", rr.Code)
+		}
+		var resp map[string]interface{}
+		json.Unmarshal(rr.Body.Bytes(), &resp)
+		if resp["deletedCount"].(float64) != 0 {
+			t.Errorf("expected 0 deleted count due to delete failure, got %v", resp["deletedCount"])
+		}
+	})
+}
+
+func TestRefreshCacheEdgeCases(t *testing.T) {
+	t.Run("Database Failures", func(t *testing.T) {
+		dbClosed := setupTestDB(t)
+		sqlDB, _ := dbClosed.DB()
+		sqlDB.Close()
+
+		cfg := &config.Config{}
+		seerrClient := seerr.NewClient(cfg)
+
+		req, _ := http.NewRequest("POST", "/api/maintenance/refresh-cache", nil)
+		rr := httptest.NewRecorder()
+		handler := handleRefreshCache(dbClosed, seerrClient, cfg)
+		handler.ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusInternalServerError {
+			t.Errorf("expected 500, got %d", rr.Code)
+		}
+	})
+
+	t.Run("Seerr API Failure handles gracefully", func(t *testing.T) {
+		db := setupTestDB(t)
+		db.Create(&database.TriageEntry{SeerrRequestID: 1, TmdbID: 10, MediaType: "movie", Status: "PENDING"})
+		db.Create(&database.TriageEntry{SeerrRequestID: 2, TmdbID: 20, MediaType: "tv", Status: "PENDING"})
+
+		errServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusNotFound)
+		}))
+		defer errServer.Close()
+
+		cfg := &config.Config{}
+		seerrClient := seerr.NewClient(&config.Config{SeerrURL: errServer.URL})
+
+		req, _ := http.NewRequest("POST", "/api/maintenance/refresh-cache", nil)
+		rr := httptest.NewRecorder()
+		handler := handleRefreshCache(db, seerrClient, cfg)
+		handler.ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusOK {
+			t.Fatalf("expected 200, got %d", rr.Code)
+		}
+		var resp map[string]interface{}
+		json.Unmarshal(rr.Body.Bytes(), &resp)
+		if resp["refreshedCount"].(float64) != 0 {
+			t.Errorf("expected 0 refreshed count, got %v", resp["refreshedCount"])
+		}
+	})
+}
+
+func TestGetCacheInfoEdgeCases(t *testing.T) {
+	// Queries 1 and 2: GORM Model.Count calls — use the query callback
+	for failIndex := 1; failIndex <= 2; failIndex++ {
+		failIndex := failIndex
+		t.Run(fmt.Sprintf("Database Failures query %d", failIndex), func(t *testing.T) {
+			db := setupTestDB(t)
+			queryCount := 0
+			db.Callback().Query().Before("gorm:query").Register("fail_nth_query", func(d *gorm.DB) {
+				queryCount++
+				if queryCount == failIndex {
+					d.AddError(errors.New("mocked error"))
+				}
+			})
+
+			cfg := &config.Config{DBDriver: "sqlite"}
+			req, _ := http.NewRequest("GET", "/api/maintenance/cache", nil)
+			rr := httptest.NewRecorder()
+			handler := handleGetCacheInfo(db, cfg)
+			handler.ServeHTTP(rr, req)
+
+			if rr.Code != http.StatusInternalServerError {
+				t.Errorf("expected 500, got %d for query %d", rr.Code, failIndex)
+			}
+		})
+	}
+
+	// Queries 3 and 4: Raw().Scan() uses the 'row' callback — inject errors there
+	for failIndex := 1; failIndex <= 2; failIndex++ {
+		failIndex := failIndex
+		t.Run(fmt.Sprintf("Database Failures PRAGMA %d", failIndex), func(t *testing.T) {
+			db := setupTestDB(t)
+			rowCount := 0
+			db.Callback().Row().Before("gorm:row").Register("fail_nth_row", func(d *gorm.DB) {
+				rowCount++
+				if rowCount == failIndex {
+					d.AddError(errors.New("mocked PRAGMA error"))
+				}
+			})
+
+			cfg := &config.Config{DBDriver: "sqlite"}
+			req, _ := http.NewRequest("GET", "/api/maintenance/cache", nil)
+			rr := httptest.NewRecorder()
+			handler := handleGetCacheInfo(db, cfg)
+			handler.ServeHTTP(rr, req)
+
+			if rr.Code != http.StatusInternalServerError {
+				t.Errorf("expected 500, got %d for PRAGMA %d", rr.Code, failIndex)
+			}
+		})
+	}
+
+	t.Run("Postgres Driver size lookup", func(t *testing.T) {
+		// Mock postgres driver to test size lookup logic
+		db := setupTestDB(t)
+		cfg := &config.Config{DBDriver: "postgres"}
+		req, _ := http.NewRequest("GET", "/api/maintenance/cache", nil)
+		rr := httptest.NewRecorder()
+		handler := handleGetCacheInfo(db, cfg)
+		handler.ServeHTTP(rr, req)
+
+		// It will fail because sqlite doesn't support current_database() function
+		if rr.Code != http.StatusInternalServerError {
+			t.Errorf("expected 500 on sqlite executing pg queries, got %d", rr.Code)
+		}
+	})
+
+	t.Run("Unsupported Driver size lookup", func(t *testing.T) {
+		db := setupTestDB(t)
+		cfg := &config.Config{DBDriver: "unsupported-driver"}
+		req, _ := http.NewRequest("GET", "/api/maintenance/cache", nil)
+		rr := httptest.NewRecorder()
+		handler := handleGetCacheInfo(db, cfg)
+		handler.ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusOK {
+			t.Errorf("expected 200, got %d", rr.Code)
 		}
 	})
 }
