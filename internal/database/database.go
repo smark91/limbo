@@ -67,7 +67,7 @@ func Init(cfg *config.Config) (*gorm.DB, error) {
 	}
 
 	// Auto-migrate the schema
-	if err := db.AutoMigrate(&TriageEntry{}, &SystemMetadata{}); err != nil {
+	if err := db.AutoMigrate(&TriageEntry{}, &SystemMetadata{}, &PushSubscription{}); err != nil {
 		return nil, fmt.Errorf("failed to auto-migrate: %w", err)
 	}
 

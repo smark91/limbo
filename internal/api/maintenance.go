@@ -245,7 +245,7 @@ func handleTestNotification(db *gorm.DB, scannerInstance *scanner.Scanner, seerr
 		ctx := r.Context()
 
 		notifier := scannerInstance.Notifier()
-		if notifier == nil {
+		if notifier == nil || !notifier.IsDiscordConfigured() {
 			http.Error(w, "Discord notifications are not configured (DISCORD_WEBHOOK_URL is empty)", http.StatusBadRequest)
 			return
 		}

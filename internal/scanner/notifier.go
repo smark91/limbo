@@ -7,18 +7,26 @@ import (
 	"log/slog"
 	"net/http"
 	"time"
+
+	"limbo/internal/config"
+	"limbo/internal/database"
+
+	"github.com/SherClockHolmes/webpush-go"
+	"gorm.io/gorm"
 )
 
-// Notifier sends Discord webhook embeds for unfulfilled requests.
+// Notifier handles both Discord webhook alerts and Web Push notifications.
 type Notifier struct {
-	webhookURL string
+	cfg        *config.Config
+	db         *gorm.DB
 	httpClient *http.Client
 }
 
-// NewNotifier creates a Discord notifier.
-func NewNotifier(webhookURL string) *Notifier {
+// NewNotifier creates a Notifier.
+func NewNotifier(cfg *config.Config, db *gorm.DB) *Notifier {
 	return &Notifier{
-		webhookURL: webhookURL,
+		cfg:        cfg,
+		db:         db,
 		httpClient: &http.Client{Timeout: 15 * time.Second},
 	}
 }
@@ -54,16 +62,29 @@ type webhookPayload struct {
 	Embeds    []DiscordEmbed `json:"embeds"`
 }
 
-// NotifyUnfulfilled sends a Discord embed for an unfulfilled request.
+// NotifyUnfulfilled dispatches the alert to both Discord and all active PWA Web Push subscribers.
 func (n *Notifier) NotifyUnfulfilled(title, mediaType, posterURL, serviceURL string, releaseInfo ReleaseInfo, requestedBy string, requestAge time.Duration) error {
-	if n.webhookURL == "" {
-		slog.Info("No Discord webhook URL configured, skipping notification")
-		return nil
+	var discordErr, pushErr error
+
+	// 1. Send Discord alert if configured
+	if n.cfg.DiscordWebhookURL != "" {
+		discordErr = n.sendDiscord(title, mediaType, posterURL, serviceURL, releaseInfo, requestedBy, requestAge)
+	} else {
+		slog.Debug("Discord Webhook URL not configured, skipping Discord alert")
 	}
 
-	// Color: amber for pending
-	color := 0xF59E0B
+	// 2. Send Web Push notifications to registered clients
+	pushErr = n.sendWebPush(title, mediaType, serviceURL)
 
+	// Return error if either notification dispatch failed
+	if discordErr != nil {
+		return discordErr
+	}
+	return pushErr
+}
+
+func (n *Notifier) sendDiscord(title, mediaType, posterURL, serviceURL string, releaseInfo ReleaseInfo, requestedBy string, requestAge time.Duration) error {
+	color := 0xF59E0B // Amber for pending
 	typeEmoji := "🎬"
 	if mediaType == "tv" {
 		typeEmoji = "📺"
@@ -112,7 +133,7 @@ func (n *Notifier) NotifyUnfulfilled(title, mediaType, posterURL, serviceURL str
 		return fmt.Errorf("marshalling webhook payload: %w", err)
 	}
 
-	resp, err := n.httpClient.Post(n.webhookURL, "application/json", bytes.NewReader(body))
+	resp, err := n.httpClient.Post(n.cfg.DiscordWebhookURL, "application/json", bytes.NewReader(body))
 	if err != nil {
 		return fmt.Errorf("sending webhook: %w", err)
 	}
@@ -123,6 +144,74 @@ func (n *Notifier) NotifyUnfulfilled(title, mediaType, posterURL, serviceURL str
 	}
 
 	slog.Info("Sent Discord alert for request", slog.String("title", title))
+	return nil
+}
+
+func (n *Notifier) sendWebPush(title, mediaType, serviceURL string) error {
+	var subs []database.PushSubscription
+	if err := n.db.Find(&subs).Error; err != nil {
+		return fmt.Errorf("failed to fetch push subscriptions: %w", err)
+	}
+
+	if len(subs) == 0 {
+		slog.Debug("No PWA push subscriptions registered, skipping Web Push")
+		return nil
+	}
+
+	destURL := n.cfg.SeerrPublicURL
+	if serviceURL != "" {
+		destURL = serviceURL
+	}
+
+	displayType := "Movie"
+	if mediaType == "tv" {
+		displayType = "TV"
+	}
+	titleStr := fmt.Sprintf("%s (%s)", title, displayType)
+
+	payload, err := json.Marshal(map[string]string{
+		"title":    titleStr,
+		"body":     "This request didn't get fullfilled.",
+		"url":      destURL,
+		"seerrUrl": n.cfg.SeerrPublicURL,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to marshal push payload: %w", err)
+	}
+
+	sentCount := 0
+	for _, sub := range subs {
+		s := &webpush.Subscription{
+			Endpoint: sub.Endpoint,
+			Keys: webpush.Keys{
+				P256dh: sub.P256dh,
+				Auth:   sub.Auth,
+			},
+		}
+
+		resp, err := webpush.SendNotification(payload, s, &webpush.Options{
+			Subscriber:      n.cfg.VapidSubject,
+			VAPIDPublicKey:  n.cfg.VapidPublicKey,
+			VAPIDPrivateKey: n.cfg.VapidPrivateKey,
+			TTL:             30,
+		})
+		if err != nil {
+			slog.Error("Error sending web push notification", slog.String("endpoint", sub.Endpoint), slog.Any("error", err))
+			continue
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode == http.StatusNotFound || resp.StatusCode == http.StatusGone {
+			slog.Info("Removing invalid/expired push subscription", slog.String("endpoint", sub.Endpoint))
+			n.db.Delete(&sub)
+		} else {
+			sentCount++
+		}
+	}
+
+	if sentCount > 0 {
+		slog.Info("Dispatched Web Push alerts", slog.Int("count", sentCount), slog.String("title", title))
+	}
 	return nil
 }
 
@@ -139,4 +228,9 @@ func formatDuration(d time.Duration) string {
 		return "1 day"
 	}
 	return fmt.Sprintf("%d days", days)
+}
+
+// IsDiscordConfigured returns true if a Discord Webhook URL is set.
+func (n *Notifier) IsDiscordConfigured() bool {
+	return n.cfg.DiscordWebhookURL != ""
 }

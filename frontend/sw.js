@@ -1,4 +1,4 @@
-const CACHE_NAME = 'limbo-cache-v1';
+const CACHE_NAME = 'limbo-cache-v3';
 const ASSETS = [
   '/',
   '/index.html',
@@ -72,6 +72,62 @@ self.addEventListener('fetch', event => {
           throw err;
         });
       });
+    })
+  );
+});
+
+self.addEventListener('push', event => {
+  let data = { title: 'Limbo Update', body: 'A new notification is available.' };
+  try {
+    if (event.data) {
+      data = event.data.json();
+    }
+  } catch (err) {
+    console.error('Failed to parse push data:', err);
+  }
+
+  const actions = [];
+  if (data.seerrUrl) {
+    actions.push({
+      action: 'open-seerr',
+      title: 'Open Seerr'
+    });
+  }
+
+  const options = {
+    body: data.body,
+    icon: '/assets/logo.svg',
+    badge: '/assets/logo.svg',
+    data: {
+      url: data.url || '/',
+      seerrUrl: data.seerrUrl
+    },
+    actions: actions
+  };
+
+  event.waitUntil(
+    self.registration.showNotification(data.title, options)
+  );
+});
+
+self.addEventListener('notificationclick', event => {
+  event.notification.close();
+  let urlToOpen = event.notification.data.url;
+
+  if (event.action === 'open-seerr' && event.notification.data.seerrUrl) {
+    urlToOpen = event.notification.data.seerrUrl;
+  }
+
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(windowClients => {
+      for (let client of windowClients) {
+        if (client.url === urlToOpen && 'focus' in client) {
+          return client.focus();
+        }
+      }
+      if (clients.openWindow) {
+        return clients.openWindow(urlToOpen);
+      }
     })
   );
 });

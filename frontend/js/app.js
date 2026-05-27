@@ -33,7 +33,10 @@ const App = {
         // Register Service Worker for PWA installation
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('/sw.js')
-                .then(reg => console.log('✅ ServiceWorker registered on scope:', reg.scope))
+                .then(reg => {
+                    console.log('✅ ServiceWorker registered on scope:', reg.scope);
+                    this.initNotifications(reg);
+                })
                 .catch(err => console.error('❌ ServiceWorker registration failed:', err));
         }
 
@@ -416,6 +419,56 @@ const App = {
                 this.applyTheme('system');
             }
         });
+    },
+
+    /**
+     * Initialize PWA Push Notifications.
+     */
+    async initNotifications(reg) {
+        if (!('PushManager' in window)) {
+            console.log('PWA: Push messaging is not supported in this browser');
+            return;
+        }
+
+        try {
+            // Request notification permission if default
+            if (Notification.permission === 'default') {
+                const permission = await Notification.requestPermission();
+                if (permission !== 'granted') {
+                    console.log('PWA: Notification permission was denied.');
+                    return;
+                }
+            } else if (Notification.permission !== 'granted') {
+                return;
+            }
+
+            // Get VAPID public key from backend
+            const { publicKey } = await API.getNotificationsConfig();
+            if (!publicKey) {
+                console.warn('PWA: VAPID public key not configured on server.');
+                return;
+            }
+
+            // Check if already subscribed
+            let subscription = await reg.pushManager.getSubscription();
+            if (subscription) {
+                // Verify/update subscription on server
+                await API.subscribeNotifications(subscription);
+                console.log('✅ PWA: Already subscribed to push notifications');
+                return;
+            }
+
+            // Subscribe
+            subscription = await reg.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: urlB64ToUint8Array(publicKey)
+            });
+
+            await API.subscribeNotifications(subscription);
+            console.log('✅ PWA: Subscribed to push notifications successfully');
+        } catch (err) {
+            console.error('PWA: Failed to subscribe to Web Push:', err);
+        }
     },
 
     /**

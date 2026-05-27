@@ -110,5 +110,22 @@ const API = {
             method: 'POST',
             body: JSON.stringify({ type })
         });
+    },
+
+    /**
+     * GET /api/notifications/config
+     */
+    getNotificationsConfig() {
+        return this._fetch('/api/notifications/config');
+    },
+
+    /**
+     * POST /api/notifications/subscribe
+     */
+    subscribeNotifications(subscription) {
+        return this._fetch('/api/notifications/subscribe', {
+            method: 'POST',
+            body: JSON.stringify(subscription)
+        });
     }
 };

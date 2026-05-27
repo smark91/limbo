@@ -28,10 +28,7 @@ type Scanner struct {
 
 // New creates a new Scanner instance.
 func New(cfg *config.Config, db *gorm.DB, seerrClient *seerr.Client) *Scanner {
-	var notifier *Notifier
-	if cfg.DiscordWebhookURL != "" {
-		notifier = NewNotifier(cfg.DiscordWebhookURL)
-	}
+	notifier := NewNotifier(cfg, db)
 
 	var lastScan time.Time
 	var meta database.SystemMetadata

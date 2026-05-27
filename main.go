@@ -68,6 +68,17 @@ func main() {
 	}
 	slog.Info("[DB] Initialized successfully")
 
+	// Ensure VAPID keys are configured or generated
+	if cfg.VapidPublicKey == "" || cfg.VapidPrivateKey == "" {
+		pub, priv, err := database.GetOrGenerateVapidKeys(db)
+		if err != nil {
+			slog.Error("Failed to resolve VAPID keys", slog.Any("error", err))
+			os.Exit(1)
+		}
+		cfg.VapidPublicKey = pub
+		cfg.VapidPrivateKey = priv
+	}
+
 	// Initialize Seerr client
 	seerrClient := seerr.NewClient(cfg)
 

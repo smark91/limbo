@@ -34,6 +34,11 @@ type Config struct {
 	// Logging
 	LogLevel  string // "debug", "info", "warn", "error"
 	LogFormat string // "text", "json"
+
+	// VAPID keys for Web Push Notifications
+	VapidPublicKey  string
+	VapidPrivateKey string
+	VapidSubject    string
 }
 
 // Load reads configuration from environment variables with sensible defaults.
@@ -61,6 +66,11 @@ func Load() *Config {
 		// Logging
 		LogLevel:  envOrDefault("LOG_LEVEL", "info"),
 		LogFormat: envOrDefault("LOG_FORMAT", "text"),
+
+		// VAPID
+		VapidPublicKey:  os.Getenv("VAPID_PUBLIC_KEY"),
+		VapidPrivateKey: os.Getenv("VAPID_PRIVATE_KEY"),
+		VapidSubject:    envOrDefault("VAPID_SUBJECT", "mailto:admin@limbo.local"),
 	}
 }
 
