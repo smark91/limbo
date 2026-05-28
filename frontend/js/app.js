@@ -24,6 +24,9 @@ const App = {
     async init() {
         console.log('🌀 Limbo initializing...');
 
+        // Parse view and filters from URL query parameters
+        this.parseURLParams();
+
         // Initialize Theme Settings
         this.initTheme();
 
@@ -40,6 +43,22 @@ const App = {
                 })
                 .catch(err => console.error('❌ ServiceWorker registration failed:', err));
         }
+
+        // Sync filter UI elements with state
+        const searchInput = document.getElementById('search-input');
+        if (searchInput) searchInput.value = this.state.filters.search;
+
+        const filterType = document.getElementById('filter-type');
+        if (filterType) filterType.value = this.state.filters.type;
+
+        const filterStatus = document.getElementById('filter-status');
+        if (filterStatus) filterStatus.value = this.state.filters.status;
+
+        const filterSort = document.getElementById('filter-sort');
+        if (filterSort) filterSort.value = this.state.filters.sort;
+
+        // Apply saved view without pushing/replacing URL again
+        this.switchView(this.state.currentView, false);
 
         // Initialize default date value
         const dateInput = document.getElementById('clean-date');
@@ -82,17 +101,20 @@ const App = {
         // Search input (debounced)
         document.getElementById('search-input').addEventListener('input', debounce((e) => {
             this.state.filters.search = e.target.value;
+            this.updateURLParams();
             this.loadRequests();
         }, 300));
 
         // Filter selects
         document.getElementById('filter-type').addEventListener('change', (e) => {
             this.state.filters.type = e.target.value;
+            this.updateURLParams();
             this.loadRequests();
         });
 
         document.getElementById('filter-status').addEventListener('change', (e) => {
             this.state.filters.status = e.target.value;
+            this.updateURLParams();
             // Update stat card active states
             document.querySelectorAll('.stat-card').forEach(card => {
                 card.classList.toggle('active', card.dataset.status === e.target.value);
@@ -102,6 +124,7 @@ const App = {
 
         document.getElementById('filter-sort').addEventListener('change', (e) => {
             this.state.filters.sort = e.target.value;
+            this.updateURLParams();
             this.loadRequests();
         });
 
@@ -118,10 +141,35 @@ const App = {
                 if (document.activeElement === search) {
                     search.value = '';
                     this.state.filters.search = '';
+                    this.updateURLParams();
                     search.blur();
                     this.loadRequests();
                 }
             }
+        });
+
+        // Listen for history back/forward navigation
+        window.addEventListener('popstate', () => {
+            this.parseURLParams();
+            
+            // Sync filter UI elements with state
+            const searchInput = document.getElementById('search-input');
+            if (searchInput) searchInput.value = this.state.filters.search;
+
+            const filterType = document.getElementById('filter-type');
+            if (filterType) filterType.value = this.state.filters.type;
+
+            const filterStatus = document.getElementById('filter-status');
+            if (filterStatus) filterStatus.value = this.state.filters.status;
+
+            const filterSort = document.getElementById('filter-sort');
+            if (filterSort) filterSort.value = this.state.filters.sort;
+
+            // Apply view without pushing/replacing URL params again
+            this.switchView(this.state.currentView, false);
+
+            // Reload requests
+            this.loadRequests();
         });
     },
 
@@ -151,12 +199,20 @@ const App = {
      * Load requests from API with current filters.
      */
     async loadRequests() {
+        const grid = document.getElementById('requests-grid');
+        if (grid) {
+            grid.classList.add('opacity-40', 'pointer-events-none');
+        }
         try {
             this.state.requests = await API.requests(this.state.filters);
             Components.renderRequests(this.state.requests);
         } catch (err) {
             console.error('Failed to load requests:', err);
             showToast('Failed to load requests', 'error');
+        } finally {
+            if (grid) {
+                grid.classList.remove('opacity-40', 'pointer-events-none');
+            }
         }
     },
 
@@ -184,6 +240,8 @@ const App = {
             this.state.filters.status = status;
             select.value = status;
         }
+
+        this.updateURLParams();
 
         // Update stat card active states
         document.querySelectorAll('.stat-card').forEach(card => {
@@ -216,26 +274,93 @@ const App = {
     },
 
 	async setTriage(seerrRequestId, status) {
+        // 0. Prevent updating if the status is already the same
+        const request = this.state.requests.find(r => r.seerrRequestId === seerrRequestId);
+        if (request && request.status === status) {
+            const dropdown = document.getElementById(`triage-dropdown-${seerrRequestId}`);
+            if (dropdown) dropdown.classList.remove('open');
+            return;
+        }
+
+        // 1. Immediately close the dropdown so UI feels responsive
+        const dropdown = document.getElementById(`triage-dropdown-${seerrRequestId}`);
+        if (dropdown) dropdown.classList.remove('open');
+
+        // 2. Locate the request card in the DOM
+        const card = document.querySelector(`.request-card[data-request-id="${seerrRequestId}"]`);
+        
+        // 3. If we are currently filtering by status, and the new status doesn't match the current status filter,
+        // we can fade out the card and remove it from our local state.
+        const currentFilterStatus = this.state.filters.status;
+        const matchesFilter = !currentFilterStatus || currentFilterStatus === status;
+
+        if (card && !matchesFilter) {
+            // Apply a nice fade-out transition class
+            card.style.transition = 'all 0.3s ease';
+            card.style.opacity = '0';
+            card.style.transform = 'translateY(10px)';
+            setTimeout(() => {
+                card.remove();
+                // Check if grid is empty now to show empty state
+                const grid = document.getElementById('requests-grid');
+                if (grid && grid.children.length === 0) {
+                    const empty = document.getElementById('empty-state');
+                    if (empty) empty.classList.remove('hidden');
+                    if (grid) grid.classList.add('hidden');
+                }
+            }, 300);
+        } else if (card) {
+            // If it still matches the filter, we can just update its status badge immediately in the UI!
+            const badge = card.querySelector('.status-badge');
+            if (badge) {
+                // Update badge text and classes
+                const badgeColors = {
+                    'PENDING': 'bg-amber-500/10 text-amber-500 border border-amber-500/20',
+                    'WAITING_RELEASE': 'bg-sky-500/10 text-sky-500 border border-sky-500/20',
+                    'UNAVAILABLE': 'bg-rose-500/10 text-rose-500 border border-rose-500/20',
+                    'COMPLETED': 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20'
+                };
+                const badgeDotColors = {
+                    'PENDING': 'bg-amber-500',
+                    'WAITING_RELEASE': 'bg-sky-500',
+                    'UNAVAILABLE': 'bg-rose-500',
+                    'COMPLETED': 'bg-emerald-500'
+                };
+                badge.className = `status-badge ${status} inline-flex items-center gap-1.5 py-1 px-2.5 rounded-full text-[0.7rem] font-bold uppercase tracking-wider w-fit ${badgeColors[status] || ''}`;
+                badge.innerHTML = `
+                    <span class="w-1.5 h-1.5 rounded-full animate-pulse ${badgeDotColors[status] || ''}"></span>
+                    ${statusLabel(status)}
+                `;
+            }
+            
+            // Also hide the triage dropdown action button if it's completed (completed cards don't have triage buttons)
+            if (status === 'COMPLETED') {
+                const triageBtn = card.querySelector('.triage-dropdown');
+                if (triageBtn) triageBtn.remove();
+            }
+        }
+
 		try {
 			await API.setTriage({ seerrRequestId, status });
 			showToast(`Status set to ${statusLabel(status)}`, 'success');
 
-			// Close dropdown
-			const dropdown = document.getElementById(`triage-dropdown-${seerrRequestId}`);
-			if (dropdown) dropdown.classList.remove('open');
-
-			// Refresh
+			// Refresh background data to keep everything completely in sync (stats bar etc.)
 			await this.refresh();
 		} catch (err) {
 			showToast('Failed to update triage', 'error');
+            // Revert state by reloading in case of failure
+            await this.refresh();
 		}
 	},
 
     /**
      * Switch view between dashboard and maintenance.
      */
-    switchView(view) {
+    switchView(view, updateURL = true) {
         this.state.currentView = view;
+        if (updateURL) {
+            this.updateURLParams();
+        }
         const dashboardElements = [
             document.getElementById('stats-bar'),
             document.getElementById('filter-bar'),
@@ -583,6 +708,69 @@ const App = {
                 icons[k].classList.toggle('hidden', k !== theme);
             }
         });
+    },
+
+    /**
+     * Parse current view and filters from URL query parameters.
+     */
+    parseURLParams() {
+        const params = new URLSearchParams(window.location.search);
+        
+        const view = params.get('view');
+        if (view && (view === 'dashboard' || view === 'maintenance')) {
+            this.state.currentView = view;
+        }
+
+        const status = params.get('status');
+        if (status !== null) {
+            this.state.filters.status = status;
+        } else {
+            this.state.filters.status = 'PENDING'; // Default status
+        }
+
+        const type = params.get('type');
+        this.state.filters.type = type !== null ? type : '';
+
+        const search = params.get('search');
+        this.state.filters.search = search !== null ? search : '';
+
+        const sort = params.get('sort');
+        if (sort !== null) {
+            this.state.filters.sort = sort;
+        } else {
+            this.state.filters.sort = 'newest'; // Default sort
+        }
+    },
+
+    /**
+     * Sync the current view and active filters into the URL query parameters.
+     */
+    updateURLParams() {
+        const params = new URLSearchParams();
+        
+        if (this.state.currentView && this.state.currentView !== 'dashboard') {
+            params.set('view', this.state.currentView);
+        }
+        
+        if (this.state.filters.status !== 'PENDING') {
+            params.set('status', this.state.filters.status);
+        }
+        
+        if (this.state.filters.type) {
+            params.set('type', this.state.filters.type);
+        }
+        
+        if (this.state.filters.search) {
+            params.set('search', this.state.filters.search);
+        }
+        
+        if (this.state.filters.sort !== 'newest') {
+            params.set('sort', this.state.filters.sort);
+        }
+
+        const queryString = params.toString();
+        const newURL = window.location.pathname + (queryString ? `?${queryString}` : '');
+        window.history.replaceState(null, '', newURL);
     }
 };
 

@@ -78,10 +78,12 @@ const Components = {
 
         if (!requests || requests.length === 0) {
             grid.innerHTML = '';
+            if (grid) grid.classList.add('hidden');
             empty.classList.remove('hidden');
             return;
         }
 
+        if (grid) grid.classList.remove('hidden');
         empty.classList.add('hidden');
 
         const badgeColors = {
@@ -171,18 +173,21 @@ const Components = {
                     ${Components.icons.chevron}
                 </button>
                 <div class="triage-menu absolute bottom-[calc(100%+6px)] left-0 min-w-[180px] p-1.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-xl z-50 opacity-0 invisible translate-y-2 transition-all duration-150 group-[.open]/dropdown:opacity-100 group-[.open]/dropdown:visible group-[.open]/dropdown:translate-y-0">
+                    ${req.status !== 'PENDING' ? `
                     <button class="triage-option flex items-center gap-2 w-full py-2 px-3 border-none rounded bg-transparent text-slate-700 dark:text-slate-200 text-xs font-medium cursor-pointer transition-colors duration-150 hover:bg-slate-100 dark:hover:bg-slate-750" data-status="PENDING" onclick="App.setTriage(${req.seerrRequestId}, 'PENDING')">
                         <span class="w-2 h-2 rounded-full bg-amber-500"></span>
                         <span>Pending</span>
-                    </button>
+                    </button>` : ''}
+                    ${req.status !== 'WAITING_RELEASE' ? `
                     <button class="triage-option flex items-center gap-2 w-full py-2 px-3 border-none rounded bg-transparent text-slate-700 dark:text-slate-200 text-xs font-medium cursor-pointer transition-colors duration-150 hover:bg-slate-100 dark:hover:bg-slate-750" data-status="WAITING_RELEASE" onclick="App.setTriage(${req.seerrRequestId}, 'WAITING_RELEASE')">
                         <span class="w-2 h-2 rounded-full bg-sky-500"></span>
                         <span>Waiting Release</span>
-                    </button>
+                    </button>` : ''}
+                    ${req.status !== 'UNAVAILABLE' ? `
                     <button class="triage-option flex items-center gap-2 w-full py-2 px-3 border-none rounded bg-transparent text-slate-700 dark:text-slate-200 text-xs font-medium cursor-pointer transition-colors duration-150 hover:bg-slate-100 dark:hover:bg-slate-750" data-status="UNAVAILABLE" onclick="App.setTriage(${req.seerrRequestId}, 'UNAVAILABLE')">
                         <span class="w-2 h-2 rounded-full bg-rose-500"></span>
                         <span>Unavailable</span>
-                    </button>
+                    </button>` : ''}
                 </div>
             </div>
         `;
