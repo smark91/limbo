@@ -103,43 +103,64 @@ func EvaluateTVRelease(show *seerr.TVDetail, requestedSeasons []int) ReleaseInfo
 		}
 	}
 
-	// 2. Check for the next specific episode to air (covers returning series)
-	if show.NextEpisodeToAir != nil && show.NextEpisodeToAir.AirDate != "" {
+	// Determine if any of the requested seasons have already premiered.
+	// If a requested season has premiered, we should ignore any future NextEpisodeToAir.
+	requestedSeasonPremiered := false
+	var earliestFutureSeasonDate *time.Time
+
+	for _, reqSeason := range requestedSeasons {
+		seasonFound := false
+		for _, season := range show.Seasons {
+			if season.SeasonNumber != reqSeason {
+				continue
+			}
+			seasonFound = true
+
+			// Check if season has a known air date
+			if season.AirDate != "" {
+				if t := parseSimpleDate(season.AirDate); t != nil {
+					if t.After(now) {
+						if earliestFutureSeasonDate == nil || t.Before(*earliestFutureSeasonDate) {
+							earliestFutureSeasonDate = t
+						}
+					} else {
+						requestedSeasonPremiered = true
+					}
+				}
+			} else if len(season.Episodes) > 0 && season.Episodes[0].AirDate != "" {
+				if t := parseSimpleDate(season.Episodes[0].AirDate); t != nil {
+					if t.After(now) {
+						if earliestFutureSeasonDate == nil || t.Before(*earliestFutureSeasonDate) {
+							earliestFutureSeasonDate = t
+						}
+					} else {
+						requestedSeasonPremiered = true
+					}
+				}
+			}
+		}
+
+		// Fallback if season is not in show.Seasons or has no date
+		if !seasonFound && show.FirstAirDate != "" {
+			if t := parseSimpleDate(show.FirstAirDate); t != nil && !t.After(now) {
+				if reqSeason == 1 {
+					requestedSeasonPremiered = true
+				}
+			}
+		}
+	}
+
+	// 2. Check for the next specific episode to air.
+	// But ONLY if we haven't already confirmed that a requested season has premiered!
+	if !requestedSeasonPremiered && show.NextEpisodeToAir != nil && show.NextEpisodeToAir.AirDate != "" {
 		if t := parseReleaseDate(show.NextEpisodeToAir.AirDate); t != nil && t.After(now) {
 			return ReleaseInfo{Date: t, Source: "Air Date"}
 		}
 	}
 
-	// 3. Check per-season air dates for requested seasons (fallbacks)
-	var earliestFuture *time.Time
-	for _, reqSeason := range requestedSeasons {
-		for _, season := range show.Seasons {
-			if season.SeasonNumber != reqSeason {
-				continue
-			}
-
-			// Check season air date
-			if season.AirDate != "" {
-				if t := parseSimpleDate(season.AirDate); t != nil && t.After(now) {
-					if earliestFuture == nil || t.Before(*earliestFuture) {
-						earliestFuture = t
-					}
-				}
-			}
-
-			// Check first episode air date for more precision
-			if len(season.Episodes) > 0 && season.Episodes[0].AirDate != "" {
-				if t := parseSimpleDate(season.Episodes[0].AirDate); t != nil && t.After(now) {
-					if earliestFuture == nil || t.Before(*earliestFuture) {
-						earliestFuture = t
-					}
-				}
-			}
-		}
-	}
-
-	if earliestFuture != nil {
-		return ReleaseInfo{Date: earliestFuture, Source: "Air Date"}
+	// 3. Return the earliest future season date if we found one
+	if earliestFutureSeasonDate != nil {
+		return ReleaseInfo{Date: earliestFutureSeasonDate, Source: "Air Date"}
 	}
 
 	// 4. Fallback for Ended/Canceled shows or previously released content
@@ -165,6 +186,17 @@ func EvaluateTVRelease(show *seerr.TVDetail, requestedSeasons []int) ReleaseInfo
 // IsReleased returns true if the release date is in the past.
 func (r ReleaseInfo) IsReleased() bool {
 	if r.Date == nil {
+		return false
+	}
+	return r.Date.Before(time.Now())
+}
+
+// IsSureReleased returns true if the media has had a sure release (Digital, Physical, or Air Date) in the past.
+func (r ReleaseInfo) IsSureReleased() bool {
+	if r.Date == nil {
+		return false
+	}
+	if r.Source == "Theatrical" {
 		return false
 	}
 	return r.Date.Before(time.Now())

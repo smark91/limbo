@@ -148,7 +148,7 @@ func TestEvaluateTVRelease(t *testing.T) {
 			},
 		}
 
-		info := EvaluateTVRelease(show, []int{1})
+		info := EvaluateTVRelease(show, []int{2})
 		if info.Source != "Air Date" {
 			t.Errorf("expected source 'Air Date', got %q", info.Source)
 		}
@@ -217,6 +217,31 @@ func TestEvaluateTVRelease(t *testing.T) {
 		}
 	})
 
+	t.Run("Ignore future next episode if requested season has already premiered", func(t *testing.T) {
+		futureDateStr := time.Now().Add(48 * time.Hour).Format("2006-01-02")
+		show := &seerr.TVDetail{
+			FirstAirDate: "2020-01-01",
+			NextEpisodeToAir: &seerr.TVEpisode{
+				AirDate: futureDateStr,
+			},
+			Seasons: []seerr.TVSeason{
+				{
+					SeasonNumber: 1,
+					AirDate:      "2020-01-01",
+				},
+			},
+		}
+
+		info := EvaluateTVRelease(show, []int{1})
+		if info.Source != "Air Date" {
+			t.Errorf("expected source 'Air Date', got %q", info.Source)
+		}
+		expectedDate, _ := time.Parse("2006-01-02", "2020-01-01")
+		if info.Date == nil || !info.Date.Equal(expectedDate) {
+			t.Errorf("expected date %v, got %v", expectedDate, info.Date)
+		}
+	})
+
 	t.Run("Upcoming status fallback to Unknown when no dates", func(t *testing.T) {
 		show := &seerr.TVDetail{
 			Status: "Upcoming",
@@ -260,6 +285,56 @@ func TestReleaseInfoIsReleased(t *testing.T) {
 		}
 	})
 }
+
+func TestReleaseInfoIsSureReleased(t *testing.T) {
+	t.Run("Nil Date is not sure released", func(t *testing.T) {
+		info := ReleaseInfo{Date: nil, Source: "Unknown"}
+		if info.IsSureReleased() {
+			t.Error("expected IsSureReleased() to be false for nil date")
+		}
+	})
+
+	t.Run("Past Theatrical Date is not sure released", func(t *testing.T) {
+		past := time.Now().Add(-1 * time.Hour)
+		info := ReleaseInfo{Date: &past, Source: "Theatrical"}
+		if info.IsSureReleased() {
+			t.Error("expected IsSureReleased() to be false for past theatrical date")
+		}
+	})
+
+	t.Run("Past Digital Date is sure released", func(t *testing.T) {
+		past := time.Now().Add(-1 * time.Hour)
+		info := ReleaseInfo{Date: &past, Source: "Digital"}
+		if !info.IsSureReleased() {
+			t.Error("expected IsSureReleased() to be true for past digital date")
+		}
+	})
+
+	t.Run("Past Physical Date is sure released", func(t *testing.T) {
+		past := time.Now().Add(-1 * time.Hour)
+		info := ReleaseInfo{Date: &past, Source: "Physical"}
+		if !info.IsSureReleased() {
+			t.Error("expected IsSureReleased() to be true for past physical date")
+		}
+	})
+
+	t.Run("Past Air Date is sure released", func(t *testing.T) {
+		past := time.Now().Add(-1 * time.Hour)
+		info := ReleaseInfo{Date: &past, Source: "Air Date"}
+		if !info.IsSureReleased() {
+			t.Error("expected IsSureReleased() to be true for past air date")
+		}
+	})
+
+	t.Run("Future Digital Date is not sure released", func(t *testing.T) {
+		future := time.Now().Add(1 * time.Hour)
+		info := ReleaseInfo{Date: &future, Source: "Digital"}
+		if info.IsSureReleased() {
+			t.Error("expected IsSureReleased() to be false for future digital date")
+		}
+	})
+}
+
 
 func TestParseReleaseDateEdgeCases(t *testing.T) {
 	t.Run("Fallback parsing formats", func(t *testing.T) {

@@ -120,9 +120,12 @@ func (s *Scanner) scan(ctx context.Context) {
 
 		seenIDs[req.ID] = true
 
-		// Skip if actively downloading
+		// Skip if actively downloading and not already in the database
 		if len(req.Media.DownloadStatus) > 0 {
-			continue
+			var exists int64
+			if err := s.db.WithContext(ctx).Model(&database.TriageEntry{}).Where("seerr_request_id = ?", req.ID).Count(&exists).Error; err == nil && exists == 0 {
+				continue
+			}
 		}
 
 		if err := s.processRequest(ctx, req); err != nil {
@@ -266,7 +269,7 @@ func (s *Scanner) processRequest(ctx context.Context, req seerr.SeerrRequest) er
 			entry.Status = database.StatusCompleted
 			fulfilledAt := parseTime(req.UpdatedAt)
 			entry.FulfilledAt = &fulfilledAt
-		} else if releaseInfo.Date != nil && !releaseInfo.IsReleased() {
+		} else if releaseInfo.Date != nil && !releaseInfo.IsSureReleased() {
 			entry.Status = database.StatusWaitingRelease
 		} else {
 			entry.Status = database.StatusPending
@@ -297,15 +300,17 @@ func (s *Scanner) processRequest(ctx context.Context, req seerr.SeerrRequest) er
 		} else {
 			// If it was completed, but now it's no longer completed (re-requested/deleted)
 			if existing.Status == database.StatusCompleted {
-				if releaseInfo.Date != nil && !releaseInfo.IsReleased() {
+				if releaseInfo.Date != nil && !releaseInfo.IsSureReleased() {
 					updates["status"] = database.StatusWaitingRelease
 				} else {
 					updates["status"] = database.StatusPending
 				}
 				updates["fulfilled_at"] = nil
 				updates["notified_at"] = nil
-			} else if existing.Status == database.StatusPending && releaseInfo.Date != nil && !releaseInfo.IsReleased() {
+			} else if existing.Status == database.StatusPending && releaseInfo.Date != nil && !releaseInfo.IsSureReleased() {
 				updates["status"] = database.StatusWaitingRelease
+			} else if existing.Status == database.StatusWaitingRelease && releaseInfo.IsSureReleased() {
+				updates["status"] = database.StatusPending
 			}
 		}
 
@@ -379,6 +384,11 @@ func (s *Scanner) autoResolve(ctx context.Context, req seerr.SeerrRequest) {
 func (s *Scanner) shouldNotify(entry database.TriageEntry, req seerr.SeerrRequest) bool {
 	// Already notified
 	if entry.NotifiedAt != nil {
+		return false
+	}
+
+	// Don't notify if actively downloading
+	if len(req.Media.DownloadStatus) > 0 {
 		return false
 	}
 

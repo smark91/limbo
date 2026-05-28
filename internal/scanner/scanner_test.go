@@ -61,6 +61,19 @@ func TestRevertCompletedRequest(t *testing.T) {
 				"posterPath":  "/test.jpg",
 				"status":      "Released",
 				"releaseDate": "2020-01-01",
+				"releases": map[string]interface{}{
+					"releases": []interface{}{
+						map[string]interface{}{
+							"iso_3166_1": "US",
+							"release_dates": []interface{}{
+								map[string]interface{}{
+									"type":         4,
+									"release_date": "2020-01-01T00:00:00.000Z",
+								},
+							},
+						},
+					},
+				},
 			}
 			json.NewEncoder(w).Encode(movieDetail)
 			return
@@ -325,7 +338,10 @@ func TestScannerSkipActiveDownload(t *testing.T) {
 func (s *Scanner) processedRequestsMock(ctx context.Context, requests []seerr.SeerrRequest) {
 	for _, req := range requests {
 		if len(req.Media.DownloadStatus) > 0 {
-			continue
+			var exists int64
+			if err := s.db.WithContext(ctx).Model(&database.TriageEntry{}).Where("seerr_request_id = ?", req.ID).Count(&exists).Error; err == nil && exists == 0 {
+				continue
+			}
 		}
 		_ = s.processRequest(ctx, req)
 	}
@@ -470,4 +486,313 @@ func TestParseTimePrivate(t *testing.T) {
 		}
 	})
 }
+
+func TestScannerWaitingReleaseToPending(t *testing.T) {
+	db := setupTestDB(t)
+	now := time.Now()
+
+	// Seed database with a WAITING_RELEASE request
+	initialEntry := database.TriageEntry{
+		SeerrRequestID: 300,
+		MediaID:        400,
+		TmdbID:         500,
+		Title:          "Released Movie",
+		MediaType:      "movie",
+		Status:         database.StatusWaitingRelease,
+		SeerrCreatedAt: now.Add(-24 * time.Hour),
+	}
+	if err := db.Create(&initialEntry).Error; err != nil {
+		t.Fatalf("failed to seed entry: %v", err)
+	}
+
+	// Mock Seerr API Server returning a release date in the past
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.URL.Path == "/api/v1/movie/500" {
+			movieDetail := map[string]interface{}{
+				"id":          500,
+				"title":       "Released Movie",
+				"posterPath":  "/released.jpg",
+				"status":      "Released",
+				"releaseDate": "2020-01-01",
+				"releases": map[string]interface{}{
+					"releases": []interface{}{
+						map[string]interface{}{
+							"iso_3166_1": "US",
+							"release_dates": []interface{}{
+								map[string]interface{}{
+									"type":         4,
+									"release_date": "2020-01-01T00:00:00.000Z",
+								},
+							},
+						},
+					},
+				},
+			}
+			json.NewEncoder(w).Encode(movieDetail)
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer server.Close()
+
+	cfg := &config.Config{
+		SeerrURL:    server.URL,
+		SeerrAPIKey: "test-key",
+	}
+	s := New(cfg, db, seerr.NewClient(cfg))
+
+	req := seerr.SeerrRequest{
+		ID:        300,
+		Status:    2,
+		MediaType: "movie",
+		Media: seerr.Media{
+			ID:     400,
+			TmdbID: 500,
+			Status: 2, // Approved/Pending
+		},
+		CreatedAt: now.Add(-5 * time.Hour).Format(time.RFC3339),
+		UpdatedAt: now.Format(time.RFC3339),
+	}
+
+	err := s.processRequest(context.Background(), req)
+	if err != nil {
+		t.Fatalf("failed to process request: %v", err)
+	}
+
+	var entry database.TriageEntry
+	if err := db.First(&entry, "seerr_request_id = ?", 300).Error; err != nil {
+		t.Fatalf("failed to query entry: %v", err)
+	}
+
+	if entry.Status != database.StatusPending {
+		t.Errorf("expected status 'PENDING' when release date passes, got %q", entry.Status)
+	}
+}
+
+func TestScannerWaitingReleaseNoDateStaysWaiting(t *testing.T) {
+	db := setupTestDB(t)
+	now := time.Now()
+
+	// Seed database with a WAITING_RELEASE request
+	initialEntry := database.TriageEntry{
+		SeerrRequestID: 301,
+		MediaID:        401,
+		TmdbID:         501,
+		Title:          "Unknown Release Date Movie",
+		MediaType:      "movie",
+		Status:         database.StatusWaitingRelease,
+		SeerrCreatedAt: now.Add(-24 * time.Hour),
+	}
+	if err := db.Create(&initialEntry).Error; err != nil {
+		t.Fatalf("failed to seed entry: %v", err)
+	}
+
+	// Mock Seerr API Server returning no release date
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.URL.Path == "/api/v1/movie/501" {
+			movieDetail := map[string]interface{}{
+				"id":          501,
+				"title":       "Unknown Release Date Movie",
+				"posterPath":  "/unknown.jpg",
+				"status":      "In Production",
+				"releaseDate": "", // No release date
+			}
+			json.NewEncoder(w).Encode(movieDetail)
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer server.Close()
+
+	cfg := &config.Config{
+		SeerrURL:    server.URL,
+		SeerrAPIKey: "test-key",
+	}
+	s := New(cfg, db, seerr.NewClient(cfg))
+
+	req := seerr.SeerrRequest{
+		ID:        301,
+		Status:    2,
+		MediaType: "movie",
+		Media: seerr.Media{
+			ID:     401,
+			TmdbID: 501,
+			Status: 2,
+		},
+		CreatedAt: now.Add(-5 * time.Hour).Format(time.RFC3339),
+		UpdatedAt: now.Format(time.RFC3339),
+	}
+
+	err := s.processRequest(context.Background(), req)
+	if err != nil {
+		t.Fatalf("failed to process request: %v", err)
+	}
+
+	var entry database.TriageEntry
+	if err := db.First(&entry, "seerr_request_id = ?", 301).Error; err != nil {
+		t.Fatalf("failed to query entry: %v", err)
+	}
+
+	if entry.Status != database.StatusWaitingRelease {
+		t.Errorf("expected status to remain 'WAITING_RELEASE' when release date is unknown, got %q", entry.Status)
+	}
+}
+
+func TestScannerPastTheatricalStaysWaiting(t *testing.T) {
+	db := setupTestDB(t)
+	now := time.Now()
+
+	// 1. Test existing WAITING_RELEASE entry
+	// Seed database with a WAITING_RELEASE request
+	initialEntry := database.TriageEntry{
+		SeerrRequestID: 302,
+		MediaID:        402,
+		TmdbID:         502,
+		Title:          "Past Theatrical Movie",
+		MediaType:      "movie",
+		Status:         database.StatusWaitingRelease,
+		SeerrCreatedAt: now.Add(-24 * time.Hour),
+	}
+	if err := db.Create(&initialEntry).Error; err != nil {
+		t.Fatalf("failed to seed entry: %v", err)
+	}
+
+	// Mock Seerr API Server returning only a past theatrical release date (no digital/physical)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.URL.Path == "/api/v1/movie/502" {
+			movieDetail := map[string]interface{}{
+				"id":          502,
+				"title":       "Past Theatrical Movie",
+				"posterPath":  "/theatrical.jpg",
+				"status":      "Released",
+				"releaseDate": "2020-01-01", // Fallback -> Theatrical
+			}
+			json.NewEncoder(w).Encode(movieDetail)
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer server.Close()
+
+	cfg := &config.Config{
+		SeerrURL:    server.URL,
+		SeerrAPIKey: "test-key",
+	}
+	s := New(cfg, db, seerr.NewClient(cfg))
+
+	req := seerr.SeerrRequest{
+		ID:        302,
+		Status:    2,
+		MediaType: "movie",
+		Media: seerr.Media{
+			ID:     402,
+			TmdbID: 502,
+			Status: 2,
+		},
+		CreatedAt: now.Add(-5 * time.Hour).Format(time.RFC3339),
+		UpdatedAt: now.Format(time.RFC3339),
+	}
+
+	err := s.processRequest(context.Background(), req)
+	if err != nil {
+		t.Fatalf("failed to process request: %v", err)
+	}
+
+	var entry database.TriageEntry
+	if err := db.First(&entry, "seerr_request_id = ?", 302).Error; err != nil {
+		t.Fatalf("failed to query entry: %v", err)
+	}
+
+	if entry.Status != database.StatusWaitingRelease {
+		t.Errorf("expected status to remain 'WAITING_RELEASE' when release is theatrical fallback, got %q", entry.Status)
+	}
+}
+
+func TestScannerActiveDownloadExistingEntry(t *testing.T) {
+	db := setupTestDB(t)
+	now := time.Now()
+
+	// Seed database with a WAITING_RELEASE request
+	initialEntry := database.TriageEntry{
+		SeerrRequestID: 303,
+		MediaID:        403,
+		TmdbID:         503,
+		Title:          "Downloading Movie",
+		MediaType:      "movie",
+		Status:         database.StatusWaitingRelease,
+		SeerrCreatedAt: now.Add(-24 * time.Hour),
+	}
+	if err := db.Create(&initialEntry).Error; err != nil {
+		t.Fatalf("failed to seed entry: %v", err)
+	}
+
+	// Mock Seerr API Server returning a release date in the past
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.URL.Path == "/api/v1/movie/503" {
+			movieDetail := map[string]interface{}{
+				"id":          503,
+				"title":       "Downloading Movie",
+				"posterPath":  "/released.jpg",
+				"status":      "Released",
+				"releaseDate": "2020-01-01",
+				"releases": map[string]interface{}{
+					"releases": []interface{}{
+						map[string]interface{}{
+							"iso_3166_1": "US",
+							"release_dates": []interface{}{
+								map[string]interface{}{
+									"type":         4,
+									"release_date": "2020-01-01T00:00:00.000Z",
+								},
+							},
+						},
+					},
+				},
+			}
+			json.NewEncoder(w).Encode(movieDetail)
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer server.Close()
+
+	cfg := &config.Config{
+		SeerrURL:    server.URL,
+		SeerrAPIKey: "test-key",
+	}
+	s := New(cfg, db, seerr.NewClient(cfg))
+
+	req := seerr.SeerrRequest{
+		ID:        303,
+		Status:    2,
+		MediaType: "movie",
+		Media: seerr.Media{
+			ID:             403,
+			TmdbID:         503,
+			Status:         2, // Approved/Pending
+			DownloadStatus: []interface{}{"downloading"},
+		},
+		CreatedAt: now.Add(-5 * time.Hour).Format(time.RFC3339),
+		UpdatedAt: now.Format(time.RFC3339),
+	}
+
+	// Run scan
+	s.processedRequestsMock(context.Background(), []seerr.SeerrRequest{req})
+
+	var entry database.TriageEntry
+	if err := db.First(&entry, "seerr_request_id = ?", 303).Error; err != nil {
+		t.Fatalf("failed to query entry: %v", err)
+	}
+
+	if entry.Status != database.StatusPending {
+		t.Errorf("expected status 'PENDING' when release date passes and it starts downloading, got %q", entry.Status)
+	}
+}
+
+
+
 

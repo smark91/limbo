@@ -95,7 +95,7 @@ All configuration is parsed from environment variables inside `internal/config`.
 - Evaluates approved requests:
   - If a media entry is already completed (status `4` or `5`), it automatically marks it as `COMPLETED`.
   - Parses release dates using priority: `Digital > Physical > Theatrical` for movies, and season-specific air dates for TV shows.
-  - Automatically transitions pending requests with future release dates to `WAITING_RELEASE`.
+  - Automatically transitions pending requests with future sure release dates (or past theatrical-only release dates) to `WAITING_RELEASE`.
   - Resolves stale database entries no longer present in Seerr's approved request list.
 - Webhook notifications are dispatched once per request within the target timing window: `[delay, max_age]`.
 
@@ -113,10 +113,10 @@ A `TriageEntry` has one of the following statuses:
 ```mermaid
 stateDiagram-v2
     [*] --> PENDING : New Request
-    PENDING --> WAITING_RELEASE : Release date in future
+    PENDING --> WAITING_RELEASE : Release date in future (or theatrical-only)
     PENDING --> NOT_AVAILABLE : Manually triaged as unavailable
     PENDING --> COMPLETED : Fulfilled on Seerr (status 4/5)
-    WAITING_RELEASE --> PENDING : Release date passes
+    WAITING_RELEASE --> PENDING : Sure release date passes
     WAITING_RELEASE --> COMPLETED : Fulfilled on Seerr
     NOT_AVAILABLE --> PENDING : Manually reverted to pending
     NOT_AVAILABLE --> COMPLETED : Fulfilled on Seerr
@@ -124,7 +124,7 @@ stateDiagram-v2
 ```
 
 - **`PENDING`**: Request is approved and released, but not yet present in client download queue or media library.
-- **`WAITING_RELEASE`**: Media is not yet released. The background scan updates this when the release date passes.
+- **`WAITING_RELEASE`**: Media is not yet released (or has only had a theatrical release). The background scan updates this to `PENDING` when a sure release date (Digital, Physical, or Air Date) passes.
 - **`NOT_AVAILABLE`**: A triage administrator manually marked this request as currently unavailable or unfulfillable.
 - **`COMPLETED`**: Automatically set when Seerr reports the media as partially or fully available.
 
