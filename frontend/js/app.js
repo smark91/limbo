@@ -36,6 +36,7 @@ const App = {
                 .then(reg => {
                     console.log('✅ ServiceWorker registered on scope:', reg.scope);
                     this.initNotifications(reg);
+                    this.trackSWUpdates(reg);
                 })
                 .catch(err => console.error('❌ ServiceWorker registration failed:', err));
         }
@@ -469,6 +470,66 @@ const App = {
         } catch (err) {
             console.error('PWA: Failed to subscribe to Web Push:', err);
         }
+    },
+
+    /**
+     * Monitor Service Worker updates and prompt user to reload when a new version is ready.
+     */
+    trackSWUpdates(reg) {
+        // If there's already a waiting worker (e.g. from a previous session), show the update prompt immediately
+        if (reg.waiting) {
+            this.showUpdatePrompt(reg.waiting);
+            return;
+        }
+
+        // Listen for new worker installing
+        reg.addEventListener('updatefound', () => {
+            const newWorker = reg.installing;
+            newWorker.addEventListener('statechange', () => {
+                // Once installed, check if we had an existing active controller (i.e. it is an update, not the first load)
+                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                    this.showUpdatePrompt(newWorker);
+                }
+            });
+        });
+
+        // Reload the page once the new service worker takes control (after skipWaiting)
+        let refreshing = false;
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+            if (refreshing) return;
+            refreshing = true;
+            window.location.reload();
+        });
+    },
+
+    /**
+     * Show a non-intrusive toast requesting the user to update the app.
+     */
+    showUpdatePrompt(worker) {
+        const container = document.getElementById('toast-container');
+        if (!container) return;
+
+        const toast = document.createElement('div');
+        // Styled beautifully following tailwind classes
+        toast.className = 'flex items-center justify-between gap-4 py-3.5 px-4 rounded-xl border shadow-2xl text-xs font-semibold bg-slate-900/95 text-white border-indigo-500/30 max-w-sm w-full transition-all duration-300 transform translate-y-0 opacity-100';
+        
+        toast.innerHTML = `
+            <div class="flex items-center gap-2">
+                <span class="text-sm font-bold text-indigo-400">✨</span>
+                <span>New version available!</span>
+            </div>
+            <button class="bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-lg text-[0.75rem] font-bold cursor-pointer transition-all duration-150 hover:-translate-y-px active:translate-y-0 shrink-0" id="btn-sw-update">
+                Update
+            </button>
+        `;
+
+        container.appendChild(toast);
+
+        const btn = toast.querySelector('#btn-sw-update');
+        btn.addEventListener('click', () => {
+            worker.postMessage({ action: 'skipWaiting' });
+            toast.remove();
+        });
     },
 
     /**

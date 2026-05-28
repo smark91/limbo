@@ -1,4 +1,4 @@
-const CACHE_NAME = 'limbo-cache-v3';
+const CACHE_NAME = 'limbo-cache-v5';
 const ASSETS = [
   '/',
   '/index.html',
@@ -17,7 +17,12 @@ self.addEventListener('install', event => {
       return cache.addAll(ASSETS).catch(err => console.warn('PWA: Cache pre-fill failed', err));
     })
   );
-  self.skipWaiting();
+});
+
+self.addEventListener('message', event => {
+  if (event.data && event.data.action === 'skipWaiting') {
+    self.skipWaiting();
+  }
 });
 
 self.addEventListener('activate', event => {
