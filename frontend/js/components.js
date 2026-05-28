@@ -101,24 +101,24 @@ const Components = {
             const releaseStr = req.releaseDate
                 ? `${releaseIcon(req.releaseSource || 'Unknown')} ${req.releaseSource || ''}: ${formatDate(req.releaseDate)}`
                 : '';
-            
+
             const fulfilledStr = req.status === 'COMPLETED' && req.fulfilledAt
                 ? `✅ Fulfilled: ${formatDate(req.fulfilledAt)}`
                 : '';
-            
+
             const posterSrc = req.posterUrl || '';
 
             // Build Seerr link
             const seerrLink = req.seerrUrl || '#';
 
             return `
-                <div class="request-card group flex flex-col p-0 rounded-xl bg-white/60 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:shadow-lg transition-all duration-200 animate-fadeInUp opacity-0" style="animation-delay: ${idx * 0.05}s" data-request-id="${req.seerrRequestId}">
+                <div class="request-card group flex flex-col p-0 rounded-xl bg-white/60 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:shadow-lg transition-all duration-200 animate-fade-in-up opacity-0" style="animation-delay: ${idx * 0.05}s" data-request-id="${req.seerrRequestId}">
                     <div class="flex gap-4 p-4 pb-2">
                         <div class="w-[60px] min-w-[60px] h-[90px] rounded overflow-hidden bg-slate-100 dark:bg-slate-900 shrink-0">
-                            ${posterSrc 
-                                ? `<img src="${posterSrc}" alt="${req.title}" loading="lazy" class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105">`
-                                : `<div class="w-full h-full flex items-center justify-center text-3xl text-slate-400 dark:text-slate-500 bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-900">${req.mediaType === 'tv' ? Components.icons.tv : Components.icons.movie}</div>`
-                            }
+                            ${posterSrc
+                    ? `<img src="${posterSrc}" alt="${req.title}" loading="lazy" class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105">`
+                    : `<div class="w-full h-full flex items-center justify-center text-3xl text-slate-400 dark:text-slate-500 bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-900">${req.mediaType === 'tv' ? Components.icons.tv : Components.icons.movie}</div>`
+                }
                         </div>
                         <div class="flex-1 flex flex-col gap-1.5 min-w-0">
                             <div class="flex items-start justify-between gap-3">
@@ -139,13 +139,13 @@ const Components = {
                     <div class="p-4 pt-0.5 mt-auto">
                         <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full">
                             ${Components._renderTriageAction(req)}
-                            ${req.serviceUrl 
-                                ? `<a class="action-btn w-full sm:flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2.5 rounded border border-slate-200 dark:border-slate-700 bg-white/60 dark:bg-slate-800/40 text-slate-600 dark:text-slate-400 text-xs font-semibold cursor-pointer transition-all duration-150 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-slate-100 hover:border-slate-350 dark:hover:border-slate-600" href="${req.serviceUrl}" title="Open in Service">
+                            ${req.serviceUrl
+                    ? `<a class="action-btn w-full sm:flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2.5 rounded border border-slate-200 dark:border-slate-700 bg-white/60 dark:bg-slate-800/40 text-slate-600 dark:text-slate-400 text-xs font-semibold cursor-pointer transition-all duration-150 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-slate-100 hover:border-slate-350 dark:hover:border-slate-600" href="${req.serviceUrl}" title="Open in Service">
                                      ${req.mediaType === 'tv' ? Components.icons.sonarr : Components.icons.radarr}
                                      <span>${req.mediaType === 'tv' ? 'Sonarr' : 'Radarr'}</span>
                                    </a>`
-                                : ''
-                            }
+                    : ''
+                }
                             <a class="action-btn w-full sm:flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2.5 rounded border border-slate-200 dark:border-slate-700 bg-white/60 dark:bg-slate-800/40 text-slate-600 dark:text-slate-400 text-xs font-semibold cursor-pointer transition-all duration-150 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-slate-100 hover:border-slate-350 dark:hover:border-slate-600" href="${seerrLink}" title="Seerr">
                                 ${Components.icons.seerr}
                                 <span>Seerr</span>
@@ -194,14 +194,14 @@ const Components = {
     toggleTriageMenu(seerrRequestId, event) {
         event.stopPropagation();
         const el = document.getElementById(`triage-dropdown-${seerrRequestId}`);
-        
+
         // Close all other open dropdowns
         document.querySelectorAll('.triage-dropdown.open').forEach(other => {
             if (other !== el) {
                 other.classList.remove('open');
             }
         });
-        
+
         if (el) {
             el.classList.toggle('open');
         }
