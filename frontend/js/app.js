@@ -151,7 +151,7 @@ const App = {
         // Listen for history back/forward navigation
         window.addEventListener('popstate', () => {
             this.parseURLParams();
-            
+
             // Sync filter UI elements with state
             const searchInput = document.getElementById('search-input');
             if (searchInput) searchInput.value = this.state.filters.search;
@@ -180,7 +180,7 @@ const App = {
         try {
             this.state.stats = await API.stats();
             this.state.lastSync = this.state.stats.lastScan;
-            
+
             if (this.state.lastSync && this.state.lastSync !== "0001-01-01T00:00:00Z") {
                 document.getElementById('last-sync').textContent = `Last sync: ${timeAgo(this.state.lastSync)}`;
             }
@@ -200,9 +200,14 @@ const App = {
      */
     async loadRequests() {
         const grid = document.getElementById('requests-grid');
-        if (grid) {
-            grid.classList.add('opacity-40', 'pointer-events-none');
-        }
+
+        // Delay the loading opacity to avoid flickering/stuttering on fast connections (e.g. localhost)
+        const loadingTimeout = setTimeout(() => {
+            if (grid) {
+                grid.classList.add('opacity-40', 'pointer-events-none');
+            }
+        }, 150);
+
         try {
             this.state.requests = await API.requests(this.state.filters);
             Components.renderRequests(this.state.requests);
@@ -210,6 +215,7 @@ const App = {
             console.error('Failed to load requests:', err);
             showToast('Failed to load requests', 'error');
         } finally {
+            clearTimeout(loadingTimeout);
             if (grid) {
                 grid.classList.remove('opacity-40', 'pointer-events-none');
             }
@@ -273,7 +279,7 @@ const App = {
         }
     },
 
-	async setTriage(seerrRequestId, status) {
+    async setTriage(seerrRequestId, status) {
         // 0. Prevent updating if the status is already the same
         const request = this.state.requests.find(r => r.seerrRequestId === seerrRequestId);
         if (request && request.status === status) {
@@ -288,7 +294,7 @@ const App = {
 
         // 2. Locate the request card in the DOM
         const card = document.querySelector(`.request-card[data-request-id="${seerrRequestId}"]`);
-        
+
         // 3. If we are currently filtering by status, and the new status doesn't match the current status filter,
         // we can fade out the card and remove it from our local state.
         const currentFilterStatus = this.state.filters.status;
@@ -332,7 +338,7 @@ const App = {
                     ${statusLabel(status)}
                 `;
             }
-            
+
             // Also hide the triage dropdown action button if it's completed (completed cards don't have triage buttons)
             if (status === 'COMPLETED') {
                 const triageBtn = card.querySelector('.triage-dropdown');
@@ -340,18 +346,18 @@ const App = {
             }
         }
 
-		try {
-			await API.setTriage({ seerrRequestId, status });
-			showToast(`Status set to ${statusLabel(status)}`, 'success');
+        try {
+            await API.setTriage({ seerrRequestId, status });
+            showToast(`Status set to ${statusLabel(status)}`, 'success');
 
-			// Refresh background data to keep everything completely in sync (stats bar etc.)
-			await this.refresh();
-		} catch (err) {
-			showToast('Failed to update triage', 'error');
+            // Refresh background data to keep everything completely in sync (stats bar etc.)
+            await this.refresh();
+        } catch (err) {
+            showToast('Failed to update triage', 'error');
             // Revert state by reloading in case of failure
             await this.refresh();
-		}
-	},
+        }
+    },
 
     /**
      * Switch view between dashboard and maintenance.
@@ -451,11 +457,11 @@ const App = {
             const olderThan = new Date(dateVal + 'T00:00:00Z').toISOString();
             const res = await API.cleanOlder(olderThan, statuses);
             showToast(`Successfully deleted ${res.deletedCount} request(s)`, 'success');
-            
+
             // Force immediate sync to reconcile state with Seerr
             showToast('Forcing sync...', 'info');
             await API.sync();
-            
+
             await this.refresh();
         } catch (err) {
             showToast(err.message || 'Failed to clean requests', 'error');
@@ -637,14 +643,14 @@ const App = {
         const toast = document.createElement('div');
         // Styled beautifully following tailwind classes
         toast.className = 'flex items-center justify-between gap-4 py-3.5 px-4 rounded-xl border shadow-2xl text-xs font-semibold bg-slate-900/95 text-white border-indigo-500/30 max-w-sm w-full transition-all duration-300 transform translate-y-0 opacity-100';
-        
+
         toast.innerHTML = `
             <div class="flex items-center gap-2">
                 <span class="text-sm font-bold text-indigo-400">✨</span>
-                <span>New version available!</span>
+                <span>New version installed.</span>
             </div>
             <button class="bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-lg text-[0.75rem] font-bold cursor-pointer transition-all duration-150 hover:-translate-y-px active:translate-y-0 shrink-0" id="btn-sw-update">
-                Update
+                Reload
             </button>
         `;
 
@@ -688,7 +694,7 @@ const App = {
      */
     applyTheme(theme) {
         const isDark = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
-        
+
         if (isDark) {
             document.documentElement.classList.add('dark');
         } else {
@@ -715,30 +721,78 @@ const App = {
      */
     parseURLParams() {
         const params = new URLSearchParams(window.location.search);
-        
+        let urlChanged = false;
+
+        // 1. View parameter
         const view = params.get('view');
-        if (view && (view === 'dashboard' || view === 'maintenance')) {
-            this.state.currentView = view;
-        }
-
-        const status = params.get('status');
-        if (status !== null) {
-            this.state.filters.status = status;
+        if (view !== null) {
+            const validViews = ['dashboard', 'maintenance'];
+            if (validViews.includes(view.toLowerCase())) {
+                this.state.currentView = view.toLowerCase();
+            } else {
+                this.state.currentView = 'dashboard'; // default view
+                params.delete('view');
+                urlChanged = true;
+            }
         } else {
-            this.state.filters.status = 'PENDING'; // Default status
+            this.state.currentView = 'dashboard';
         }
 
-        const type = params.get('type');
-        this.state.filters.type = type !== null ? type : '';
+        // 2. Status parameter
+        const status = params.get('status');
+        if (status === null) {
+            this.state.filters.status = 'PENDING'; // Default status is Pending when missing
+        } else {
+            const validStatuses = ['PENDING', 'WAITING_RELEASE', 'UNAVAILABLE', 'COMPLETED'];
+            if (validStatuses.includes(status.toUpperCase())) {
+                this.state.filters.status = status.toUpperCase();
+            } else {
+                this.state.filters.status = ''; // Default to all if the status parameter is invalid, wrong, or 'all'
+                params.delete('status');
+                urlChanged = true;
+            }
+        }
 
+        // 3. Type parameter
+        const type = params.get('type');
+        if (type !== null) {
+            const validTypes = ['movie', 'tv'];
+            if (validTypes.includes(type.toLowerCase())) {
+                this.state.filters.type = type.toLowerCase();
+            } else {
+                this.state.filters.type = ''; // Default to all types
+                params.delete('type');
+                urlChanged = true;
+            }
+        } else {
+            this.state.filters.type = '';
+        }
+
+        // 4. Search parameter
         const search = params.get('search');
         this.state.filters.search = search !== null ? search : '';
 
+        // 5. Sort parameter
         const sort = params.get('sort');
         if (sort !== null) {
-            this.state.filters.sort = sort;
+            const validSorts = ['newest', 'oldest', 'title', 'release', 'release_desc', 'release_asc'];
+            if (validSorts.includes(sort.toLowerCase())) {
+                const normSort = sort.toLowerCase();
+                this.state.filters.sort = normSort === 'release_asc' ? 'release' : normSort;
+            } else {
+                this.state.filters.sort = 'newest'; // Default sort
+                params.delete('sort');
+                urlChanged = true;
+            }
         } else {
-            this.state.filters.sort = 'newest'; // Default sort
+            this.state.filters.sort = 'newest';
+        }
+
+        // Apply URL clean-up if any invalid parameter was removed
+        if (urlChanged) {
+            const queryString = params.toString();
+            const newURL = window.location.pathname + (queryString ? `?${queryString}` : '');
+            window.history.replaceState(null, '', newURL);
         }
     },
 
@@ -747,23 +801,23 @@ const App = {
      */
     updateURLParams() {
         const params = new URLSearchParams();
-        
+
         if (this.state.currentView && this.state.currentView !== 'dashboard') {
             params.set('view', this.state.currentView);
         }
-        
-        if (this.state.filters.status !== 'PENDING') {
-            params.set('status', this.state.filters.status);
+
+        if (this.state.filters.status && this.state.filters.status !== 'PENDING') {
+            params.set('status', this.state.filters.status.toLowerCase());
         }
-        
+
         if (this.state.filters.type) {
             params.set('type', this.state.filters.type);
         }
-        
+
         if (this.state.filters.search) {
             params.set('search', this.state.filters.search);
         }
-        
+
         if (this.state.filters.sort !== 'newest') {
             params.set('sort', this.state.filters.sort);
         }

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'limbo-cache-v11';
+const CACHE_NAME = 'limbo-cache-v21';
 const ASSETS = [
   '/',
   '/index.html',
@@ -51,7 +51,7 @@ self.addEventListener('fetch', event => {
   if (event.request.url.includes('/api/') || event.request.mode === 'navigate') {
     return;
   }
-  
+
   event.respondWith(
     caches.match(event.request).then(cachedResponse => {
       if (cachedResponse) {
@@ -60,10 +60,10 @@ self.addEventListener('fetch', event => {
           if (networkResponse.status === 200) {
             caches.open(CACHE_NAME).then(cache => cache.put(event.request, networkResponse));
           }
-        }).catch(() => {});
+        }).catch(() => { });
         return cachedResponse;
       }
-      
+
       return fetch(event.request).then(networkResponse => {
         if (networkResponse.status === 200) {
           const responseClone = networkResponse.clone();

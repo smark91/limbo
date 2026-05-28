@@ -28,7 +28,7 @@ func handleRequests(cfg *config.Config, db *gorm.DB) http.HandlerFunc {
 		query := db.WithContext(ctx).Model(&database.TriageEntry{})
 
 		// Filter by status
-		if status := r.URL.Query().Get("status"); status != "" {
+		if status := r.URL.Query().Get("status"); status != "" && strings.ToUpper(status) != "ALL" {
 			query = query.Where("status = ?", strings.ToUpper(status))
 		}
 
@@ -47,8 +47,10 @@ func handleRequests(cfg *config.Config, db *gorm.DB) http.HandlerFunc {
 		switch sort {
 		case "title":
 			query = query.Order("title ASC")
-		case "release":
+		case "release", "release_asc":
 			query = query.Order("release_date ASC NULLS LAST")
+		case "release_desc":
+			query = query.Order("release_date DESC NULLS LAST")
 		case "oldest":
 			query = query.Order("seerr_created_at ASC")
 		default:

@@ -103,6 +103,21 @@ func TestRequestsHandler(t *testing.T) {
 		}
 	})
 
+	t.Run("Filter by status all", func(t *testing.T) {
+		req, _ := http.NewRequest("GET", "/api/requests?status=all", nil)
+		rr := httptest.NewRecorder()
+
+		handler := handleRequests(cfg, db)
+		handler.ServeHTTP(rr, req)
+
+		var resp []enrichedRequest
+		json.Unmarshal(rr.Body.Bytes(), &resp)
+
+		if len(resp) != 3 {
+			t.Fatalf("expected 3 items, got %d", len(resp))
+		}
+	})
+
 	t.Run("Filter by type", func(t *testing.T) {
 		req, _ := http.NewRequest("GET", "/api/requests?type=tv", nil)
 		rr := httptest.NewRecorder()
@@ -168,6 +183,22 @@ func TestRequestsHandler(t *testing.T) {
 		// TV B (released in past/earliest), Movie A (released in future), Movie C (nil release date)
 		if resp[0].Title != "TV B" || resp[1].Title != "Movie A" || resp[2].Title != "Movie C" {
 			t.Errorf("sorting by release failed: %+v", resp)
+		}
+	})
+
+	t.Run("Sort by release desc", func(t *testing.T) {
+		req, _ := http.NewRequest("GET", "/api/requests?sort=release_desc", nil)
+		rr := httptest.NewRecorder()
+
+		handler := handleRequests(cfg, db)
+		handler.ServeHTTP(rr, req)
+
+		var resp []enrichedRequest
+		json.Unmarshal(rr.Body.Bytes(), &resp)
+
+		// Movie A (released in future), TV B (released in past), Movie C (nil release date)
+		if resp[0].Title != "Movie A" || resp[1].Title != "TV B" || resp[2].Title != "Movie C" {
+			t.Errorf("sorting by release desc failed: %+v", resp)
 		}
 	})
 
