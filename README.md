@@ -116,6 +116,7 @@ services:
       - "${LIMBO_PORT:-3000}:${LIMBO_PORT:-3000}"
     env_file:
       - .env
+    # BELOW CONFIG ONLY IF USING FILE SECRETS
     secrets:
       - seerr_api_key
       - postgres_url
