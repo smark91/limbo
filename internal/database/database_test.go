@@ -15,8 +15,8 @@ func TestDatabaseInit(t *testing.T) {
 	// Test 1: Invalid DB driver returns error
 	t.Run("Invalid DB Driver", func(t *testing.T) {
 		cfg := &config.Config{
-			DBDriver: "invalid-driver",
-			DBDSN:    "test.db",
+			DBDriver:   "invalid-driver",
+			SqlitePath: "test.db",
 		}
 		_, err := Init(cfg)
 		if err == nil {
@@ -27,8 +27,8 @@ func TestDatabaseInit(t *testing.T) {
 	// Test 1b: Connection failure
 	t.Run("SQLite Connection Failure", func(t *testing.T) {
 		cfg := &config.Config{
-			DBDriver: "sqlite",
-			DBDSN:    "/nonexistent/directory/uncreateable.db",
+			DBDriver:   "sqlite",
+			SqlitePath: "/nonexistent/directory/uncreateable.db",
 		}
 		_, err := Init(cfg)
 		if err == nil {
@@ -39,8 +39,8 @@ func TestDatabaseInit(t *testing.T) {
 	// Test 2: Valid SQLite in-memory initialization
 	t.Run("SQLite In-Memory Init", func(t *testing.T) {
 		cfg := &config.Config{
-			DBDriver: "sqlite",
-			DBDSN:    ":memory:",
+			DBDriver:   "sqlite",
+			SqlitePath: ":memory:",
 		}
 		db, err := Init(cfg)
 		if err != nil {
@@ -70,8 +70,8 @@ func TestDatabaseInit(t *testing.T) {
 		defer os.Remove(tempDbFile)
 
 		cfg := &config.Config{
-			DBDriver: "sqlite",
-			DBDSN:    tempDbFile,
+			DBDriver:   "sqlite",
+			SqlitePath: tempDbFile,
 		}
 		db, err := Init(cfg)
 		if err != nil {

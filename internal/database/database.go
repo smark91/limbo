@@ -21,9 +21,9 @@ func Init(cfg *config.Config) (*gorm.DB, error) {
 
 	switch cfg.DBDriver {
 	case "postgres":
-		dialector = postgres.Open(cfg.DBDSN)
+		dialector = postgres.Open(cfg.PostgresURL)
 	case "sqlite":
-		dialector = sqlite.Open(cfg.DBDSN)
+		dialector = sqlite.Open(cfg.SqlitePath)
 	default:
 		return nil, fmt.Errorf("unsupported DB_DRIVER: %s (use 'postgres' or 'sqlite')", cfg.DBDriver)
 	}

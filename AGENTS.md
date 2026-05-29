@@ -65,7 +65,8 @@ All configuration is parsed from environment variables inside `internal/config`.
 | Environment Variable | Description | Default | Required |
 |----------------------|-------------|---------|----------|
 | `DB_DRIVER` | Database engine (`sqlite` or `postgres`) | `sqlite` | No |
-| `DB_DSN` | Connection string or SQLite file path | `limbo.db` | No |
+| `POSTGRES_URL` | PostgreSQL connection URL (e.g. `postgresql://user:pass@host:5432/db`) | None | Yes (only if `DB_DRIVER` is `postgres`) |
+| `SQLITE_PATH` | SQLite database file path | `/data/limbo.db` | No |
 | `SEERR_URL` | Internal Seerr API address | `http://localhost:5055` | No |
 | `SEERR_PUBLIC_URL` | External user-facing Seerr address | `http://localhost:5055` | No |
 | `SEERR_API_KEY` | Authenticated Seerr API key | None | **Yes** |
@@ -77,6 +78,16 @@ All configuration is parsed from environment variables inside `internal/config`.
 | `LIMBO_PORT` | Port for the HTTP web server | `3000` | No |
 | `LOG_LEVEL` | Log verbosity (`debug`, `info`, `warn`, `error`) | `info` | No |
 | `LOG_FORMAT` | Format of log output (`text` or `json`) | `text` | No |
+
+### 🔒 Secrets & `_FILE` Environment Variables
+
+For sensitive configuration fields, you can append `_FILE` to the variable name to load its value from a file (e.g. Docker Secrets or Kubernetes secrets).
+Supported variables:
+- `POSTGRES_URL_FILE` (defaults to `/run/secrets/postgres_url`)
+- `SEERR_API_KEY_FILE` (defaults to `/run/secrets/seerr_api_key`)
+- `DISCORD_WEBHOOK_URL_FILE` (defaults to `/run/secrets/discord_webhook_url`)
+
+**Note**: Either the direct variable or the `_FILE` variable must be used. If both are set simultaneously, the application will fail validation on startup. If neither is set, the application automatically attempts to load the default `/run/secrets/...` file path.
 
 ---
 

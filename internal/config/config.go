@@ -13,8 +13,9 @@ import (
 // Config holds all application configuration parsed from environment variables.
 type Config struct {
 	// Database
-	DBDriver string // "postgres" or "sqlite"
-	DBDSN    string
+	DBDriver    string // "postgres" or "sqlite"
+	PostgresURL string
+	SqlitePath  string
 
 	// Seerr
 	SeerrURL       string
@@ -42,19 +43,35 @@ type Config struct {
 }
 
 // Load reads configuration from environment variables with sensible defaults.
-func Load() *Config {
+func Load() (*Config, error) {
+	postgresURL, err := loadSecret("POSTGRES_URL")
+	if err != nil {
+		return nil, err
+	}
+
+	seerrAPIKey, err := loadSecret("SEERR_API_KEY")
+	if err != nil {
+		return nil, err
+	}
+
+	discordWebhookURL, err := loadSecret("DISCORD_WEBHOOK_URL")
+	if err != nil {
+		return nil, err
+	}
+
 	return &Config{
 		// Database
-		DBDriver: envOrDefault("DB_DRIVER", "sqlite"),
-		DBDSN:    envOrDefault("DB_DSN", "limbo.db"),
+		DBDriver:    envOrDefault("DB_DRIVER", "sqlite"),
+		PostgresURL: postgresURL,
+		SqlitePath:  envOrDefault("SQLITE_PATH", "/data/limbo.db"),
 
 		// Seerr
 		SeerrURL:       envOrDefault("SEERR_URL", "http://localhost:5055"),
 		SeerrPublicURL: envOrDefault("SEERR_PUBLIC_URL", "http://localhost:5055"),
-		SeerrAPIKey:    os.Getenv("SEERR_API_KEY"),
+		SeerrAPIKey:    seerrAPIKey,
 
 		// Discord
-		DiscordWebhookURL: os.Getenv("DISCORD_WEBHOOK_URL"),
+		DiscordWebhookURL: discordWebhookURL,
 
 		// App
 		ReleaseCountry: envOrDefault("RELEASE_COUNTRY", "US"),
@@ -71,7 +88,7 @@ func Load() *Config {
 		VapidPublicKey:  os.Getenv("VAPID_PUBLIC_KEY"),
 		VapidPrivateKey: os.Getenv("VAPID_PRIVATE_KEY"),
 		VapidSubject:    envOrDefault("VAPID_SUBJECT", "mailto:admin@limbo.local"),
-	}
+	}, nil
 }
 
 // Validate checks the configuration for required settings and correct formats.
@@ -88,9 +105,28 @@ func (c *Config) Validate() error {
 		return fmt.Errorf("invalid SEERR_PUBLIC_URL: %w", err)
 	}
 
+	if c.DiscordWebhookURL != "" {
+		parsed, err := url.ParseRequestURI(c.DiscordWebhookURL)
+		if err != nil {
+			return fmt.Errorf("invalid DISCORD_WEBHOOK_URL: %w", err)
+		}
+		host := strings.ToLower(parsed.Host)
+		if host != "discord.com" && host != "discordapp.com" &&
+			!strings.HasSuffix(host, ".discord.com") && !strings.HasSuffix(host, ".discordapp.com") {
+			return fmt.Errorf("invalid DISCORD_WEBHOOK_URL: host must be discord.com, discordapp.com, or a subdomain of them")
+		}
+		if !strings.HasPrefix(parsed.Path, "/api/webhooks/") {
+			return fmt.Errorf("invalid DISCORD_WEBHOOK_URL: path must start with /api/webhooks/")
+		}
+	}
+
 	driver := strings.ToLower(c.DBDriver)
 	if driver != "sqlite" && driver != "postgres" {
 		return fmt.Errorf("unsupported DB_DRIVER %q: must be 'sqlite' or 'postgres'", c.DBDriver)
+	}
+
+	if driver == "postgres" && c.PostgresURL == "" {
+		return errors.New("POSTGRES_URL is required when DB_DRIVER is 'postgres'")
 	}
 
 	level := strings.ToLower(c.LogLevel)
@@ -120,4 +156,36 @@ func envOrDuration(key string, defaultMinutes int) time.Duration {
 		}
 	}
 	return time.Duration(defaultMinutes) * time.Minute
+}
+
+func loadSecret(key string) (string, error) {
+	val := os.Getenv(key)
+	fileVar := key + "_FILE"
+	filePath := os.Getenv(fileVar)
+
+	// Rule 1: both cannot be set
+	if val != "" && filePath != "" {
+		return "", fmt.Errorf("both %s and %s environment variables are set; only one is allowed", key, fileVar)
+	}
+
+	if val != "" {
+		return val, nil
+	}
+
+	isDefault := false
+	if filePath == "" {
+		filePath = "/run/secrets/" + strings.ToLower(key)
+		isDefault = true
+	}
+
+	content, err := os.ReadFile(filePath)
+	if err != nil {
+		if isDefault && os.IsNotExist(err) {
+			// It is okay if the default secrets file does not exist
+			return "", nil
+		}
+		return "", fmt.Errorf("failed to read secret file from %s: %w", filePath, err)
+	}
+
+	return strings.TrimSpace(string(content)), nil
 }

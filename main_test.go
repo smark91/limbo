@@ -20,7 +20,7 @@ func TestMainProcess(t *testing.T) {
 		"BE_CRASHER=1",
 		"SEERR_API_KEY=test-key-1234567890",
 		"LIMBO_PORT=0", // automatic port selection
-		"DB_DSN=test_main_ok.db",
+		"SQLITE_PATH=test_main_ok.db",
 		"SCAN_INTERVAL_MINUTES=60", // long interval to avoid periodic scan triggers in test
 	)
 	err := cmd.Start()

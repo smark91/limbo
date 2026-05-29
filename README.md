@@ -73,7 +73,8 @@ All settings are configured using environment variables:
 | Environment Variable | Description | Default | Required |
 |----------------------|-------------|---------|----------|
 | `DB_DRIVER` | Database engine (`sqlite` or `postgres`) | `sqlite` | No |
-| `DB_DSN` | Connection DSN (SQLite file path or Postgres URI) | `limbo.db` | No |
+| `POSTGRES_URL` | PostgreSQL connection URL (e.g. `postgresql://user:pass@host:5432/db`) | None | Yes (only if `DB_DRIVER` is `postgres`) |
+| `SQLITE_PATH` | SQLite database file path | `/data/limbo.db` | No |
 | `SEERR_URL` | Internal Seerr API address | `http://localhost:5055` | No |
 | `SEERR_PUBLIC_URL` | User-facing Seerr external address | `http://localhost:5055` | No |
 | `SEERR_API_KEY` | Authenticated Seerr API key | None | **Yes** |
@@ -84,6 +85,16 @@ All settings are configured using environment variables:
 | `ALERT_MAX_AGE_MINUTES` | Maximum request age (in minutes) to qualify for notifications (prevents spamming old requests) | `1440` | No |
 | `LIMBO_PORT` | Port for the HTTP web server | `3000` | No |
 | `LOG_LEVEL` | Log verbosity (`debug`, `info`, `warn`, `error`) | `info` | No |
+
+### 🔒 Secrets & `_FILE` Environment Variables
+
+For sensitive configuration fields, you can append `_FILE` to the variable name to load its value from a file (e.g. Docker Secrets or Kubernetes secrets).
+Supported variables:
+- `POSTGRES_URL_FILE` (defaults to `/run/secrets/postgres_url`)
+- `SEERR_API_KEY_FILE` (defaults to `/run/secrets/seerr_api_key`)
+- `DISCORD_WEBHOOK_URL_FILE` (defaults to `/run/secrets/discord_webhook_url`)
+
+**Note**: Either the direct variable or the `_FILE` variable must be used. If both are set simultaneously, the application will fail validation on startup. If neither is set, the application automatically attempts to load the default `/run/secrets/...` file path.
 
 ---
 
@@ -105,6 +116,18 @@ services:
       - "${LIMBO_PORT:-3000}:${LIMBO_PORT:-3000}"
     env_file:
       - .env
+    secrets:
+      - seerr_api_key
+      - postgres_url
+      - discord_webhook_url
+
+secrets:
+  seerr_api_key:
+    file: ./secrets/seerr_api_key
+  postgres_url:
+    file: ./secrets/postgres_url
+  discord_webhook_url:
+    file: ./secrets/discord_webhook_url
 ```
 
 > [!WARNING]
@@ -122,7 +145,7 @@ Create a `.env` file referencing the variables above:
 
 ```env
 DB_DRIVER=sqlite
-DB_DSN=/data/limbo.db
+SQLITE_PATH=/data/limbo.db
 SEERR_URL=http://seerr:5055
 SEERR_PUBLIC_URL=https://seerr.example.com
 SEERR_API_KEY=your_seerr_api_key_here

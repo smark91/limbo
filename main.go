@@ -25,7 +25,11 @@ var frontendFiles embed.FS
 
 func main() {
 	// Load configuration first
-	cfg := config.Load()
+	cfg, err := config.Load()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Configuration loading failed: %v\n", err)
+		os.Exit(1)
+	}
 
 	// Parse and configure slog logging
 	var level slog.Level

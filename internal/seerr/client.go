@@ -209,6 +209,12 @@ func (c *Client) doGet(ctx context.Context, url string) ([]byte, error) {
 	}
 
 	if resp.StatusCode != http.StatusOK {
+		if resp.StatusCode == http.StatusForbidden {
+			return nil, fmt.Errorf("403 Forbidden: check if SEERR_API_KEY is correct and has administrator permissions")
+		}
+		if resp.StatusCode == http.StatusUnauthorized {
+			return nil, fmt.Errorf("401 Unauthorized: check if SEERR_API_KEY is correct")
+		}
 		limit := 200
 		if len(body) < limit {
 			limit = len(body)
@@ -254,6 +260,12 @@ func (c *Client) doDelete(ctx context.Context, url string) error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNoContent {
+		if resp.StatusCode == http.StatusForbidden {
+			return fmt.Errorf("403 Forbidden: check if SEERR_API_KEY is correct and has administrator permissions")
+		}
+		if resp.StatusCode == http.StatusUnauthorized {
+			return fmt.Errorf("401 Unauthorized: check if SEERR_API_KEY is correct")
+		}
 		body, _ := io.ReadAll(resp.Body)
 		limit := 200
 		if len(body) < limit {
