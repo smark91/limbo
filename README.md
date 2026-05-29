@@ -1,6 +1,23 @@
 # Limbo 🎬
 
-Limbo is a lightweight, self-hosted Go dashboard and background notifier that tracks approved but unfulfilled requests from **Seerr** (Overseerr/Jellyseerr). It features a beautiful, responsive, glassmorphic Single-Page Application (SPA) web UI to browse, triage, and trigger search commands, while handling release date evaluation and Discord notifications.
+Limbo is a lightweight, self-hosted Go dashboard and background notifier that tracks approved but unfulfilled requests from **Seerr** (Overseerr/Jellyseerr). It features a beautiful, responsive, glassmorphic Single-Page Application (SPA) web UI to browse and triage requests, while handling release date evaluation and Discord notifications.
+
+<p align="center">
+  <img src=".github/screenshots/dashboard-dark.png" alt="Limbo Dashboard Dark Mode" width="800">
+</p>
+
+<details>
+  <summary>📸 View Light Mode & Triage Screens</summary>
+  <br>
+  <p align="center">
+    <strong>Light Mode Dashboard</strong><br><br>
+    <img src=".github/screenshots/dashboard-light.png" alt="Limbo Dashboard Light Mode" width="800">
+  </p>
+  <p align="center">
+    <strong>Triage & Maintenance Operations</strong><br><br>
+    <img src=".github/screenshots/maintenance.png" alt="Limbo Triage & Maintenance Details" width="800">
+  </p>
+</details>
 
 ---
 
@@ -14,7 +31,8 @@ Limbo is a lightweight, self-hosted Go dashboard and background notifier that tr
 - **Smart Release Evaluation**:
   - **Movies**: Evaluates release dates using priority: `Digital > Physical > Theatrical` based on country codes.
   - **TV Shows**: Parses show status and tracks individual season air dates.
-- **Interactive Triage & Management**: Add notes, change states manually, or immediately trigger search commands in **Radarr** and **Sonarr**.
+- **Manual State Overrides & Notes**: Manage and override request statuses (e.g., parking a request as `NOT_AVAILABLE` or reverting to `PENDING`) and add administrator triage notes or cancellation reasons.
+- **Maintenance & Cache Operations**: Purge stale requests older than a specific threshold (clearing them from both Limbo and Seerr), refresh the TMDB poster and release date cache, and trigger test Discord notifications.
 - **Discord Notifications**: Sends rich webhook embeds within a configurable release window.
 - **Premium User Experience**: Designed using a modern glassmorphic dark theme, featuring subtle micro-animations, poster image loading, status badges, and full mobile responsiveness (PWA-ready).
 - **Ultra-lightweight**: Written in Go with standard routing (`chi`), `gorm` (SQLite/PostgreSQL support), and embedded frontend assets—resulting in a tiny, performant Docker container (~15MB).
