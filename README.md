@@ -10,14 +10,18 @@
 
 <p align="center">
   <a href="#-features">Features</a> &bull;
-  <a href="#-getting-started">Getting Started</a> &bull;
-  <a href="#-configuration">Configuration</a> &bull;
-  <a href="#-development">Development</a>
+  <a href="#-tech-stack">Tech Stack</a> &bull;
+  <a href="#️-configuration">Configuration</a> &bull;
+  <a href="#-quick-start">Quick Start</a> &bull;
+  <a href="#-testing">Testing</a>
 </p>
 
 ---
 
 Limbo is a lightweight, self-hosted Go dashboard and background notifier that tracks approved but unfulfilled requests from **Seerr** (Overseerr/Jellyseerr). It features a beautiful, responsive, glassmorphic Single-Page Application (SPA) web UI to browse and triage requests, while handling release date evaluation and Discord notifications.
+
+> [!NOTE]
+> This project was built with significant AI assistance (Google Gemini). All feature decisions, architecture choices, and code reviews were made by the author — the AI acted as a pair programmer, not an autonomous agent.
 
 <p align="center">
   <img src=".github/screenshots/dashboard-dark.png" alt="Limbo Dashboard Dark Mode" width="800">
@@ -185,3 +189,8 @@ docker build --target tester .
 
 This project is licensed under the GNU Affero General Public License v3 - see the `LICENSE` file for details.
 
+---
+
+## 🤖 AI Disclaimer
+
+This project was built with significant AI assistance (Google Gemini / Antigravity). The backend, frontend, tests, and documentation were all written collaboratively with an AI coding assistant. All feature decisions, architecture choices, and code reviews were made by the author. The AI acted as a pair programmer — not an autonomous agent.
