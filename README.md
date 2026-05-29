@@ -108,7 +108,15 @@ services:
 ```
 
 > [!WARNING]
-> If you change the internal `LIMBO_PORT` (for example, to `8080`), the container's internal service port changes. In this case, you must also update the `HEALTHCHECK` port defined in the `Dockerfile` (or override it in `docker-compose.yaml`) to match the new port so the health check endpoint remains reachable.
+> If you change the internal `LIMBO_PORT` (for example, to `8080`), the container's internal service port changes. In this case, you must also update the `HEALTHCHECK` port defined in the `Dockerfile` (or override it in `docker-compose.yaml`) to match the new port so the health check endpoint remains reachable:
+> 
+> ```yaml
+>     healthcheck:
+>       test: wget -qO- "http://127.0.0.1:${LIMBO_PORT:-3000}/api/health" | grep '"status":"ok"' || exit 1
+>       interval: 30s
+>       timeout: 10s
+>       retries: 3
+> ```
 
 Create a `.env` file referencing the variables above:
 
