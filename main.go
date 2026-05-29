@@ -51,7 +51,7 @@ func main() {
 	}
 	slog.SetDefault(slog.New(handler))
 
-	slog.Info("🌀 Limbo starting...", slog.String("version", api.Version))
+	slog.Info("Limbo starting...", slog.String("version", api.Version))
 
 	// Validate configuration
 	if err := cfg.Validate(); err != nil {
@@ -118,7 +118,7 @@ func main() {
 
 	// Start HTTP server
 	go func() {
-		slog.Info(fmt.Sprintf("🌐 HTTP server listening on :%s", cfg.Port), slog.String("port", cfg.Port))
+		slog.Info(fmt.Sprintf("HTTP Server listening on :%s", cfg.Port), slog.String("port", cfg.Port))
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			slog.Error("HTTP server error", slog.Any("error", err))
 			os.Exit(1)
@@ -129,7 +129,7 @@ func main() {
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	sig := <-quit
-	slog.Info("⛔ Received signal, shutting down...", slog.String("signal", sig.String()))
+	slog.Info("Received signal, shutting down...", slog.String("signal", sig.String()))
 
 	// Cancel context to stop scanner
 	cancel()
@@ -142,5 +142,5 @@ func main() {
 		slog.Error("HTTP server shutdown error", slog.Any("error", err))
 	}
 
-	slog.Info("👋 Limbo stopped")
+	slog.Info("Limbo stopped")
 }

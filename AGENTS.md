@@ -87,7 +87,7 @@ All configuration is parsed from environment variables inside `internal/config`.
 - Connects to SQLite (tuned to WAL mode with max connection pool = 1 to prevent locked DB) or PostgreSQL.
 - Migrates GORM database schemas (`TriageEntry` & `SystemMetadata`).
 - Initializes `seerr.Client`, `scanner.Scanner`, and builds/strips embedded frontend files.
-- Registers route middleware (Recoverer, Logger, RealIP, Compress, CORS).
+- Registers route middleware (Recoverer, custom requestLogger (slog Debug), RealIP, Compress, CORS).
 
 ### 2. Background Goroutine Ticker
 - The scanner runs inside a separate background goroutine started on startup: `go scan.Run(ctx)`.

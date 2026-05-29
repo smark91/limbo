@@ -22,7 +22,7 @@ const App = {
      * Initialize the application.
      */
     async init() {
-        console.log('🌀 Limbo initializing...');
+        console.log('Limbo initializing...');
 
         // Parse view and filters from URL query parameters
         this.parseURLParams();
@@ -79,7 +79,7 @@ const App = {
 
         // Auto-refresh disabled by user request
 
-        console.log('✅ Limbo ready');
+        console.log('Limbo ready');
     },
 
     /**
@@ -857,18 +857,18 @@ const App = {
         // Populating modal fields
         document.getElementById('modal-seerr-id').value = seerrRequestId;
         document.getElementById('modal-title').textContent = request.title || 'Unknown Title';
-        
+
         // Check if existing reason matches one of the presets
         const existingReason = request.reason || '';
         const select = document.getElementById('modal-reason-select');
         const customInput = document.getElementById('modal-custom-reason');
-        
+
         const presets = [
             "No active sources (torrents/Usenet)",
             "Missing language / subtitles",
             "Wrong metadata / mapping issue"
         ];
-        
+
         if (existingReason === '') {
             select.value = 'none';
             customInput.value = '';
@@ -914,11 +914,11 @@ const App = {
     onUnavailableReasonPresetChange() {
         const selectValue = document.getElementById('modal-reason-select').value;
         const customGroup = document.getElementById('modal-custom-reason-group');
-        
+
         if (customGroup) {
             customGroup.classList.toggle('hidden', selectValue !== 'custom');
         }
-        
+
         // Automatically focus the custom reason field when selecting custom
         if (selectValue === 'custom') {
             setTimeout(() => {
@@ -952,7 +952,7 @@ const App = {
         try {
             // Close modal
             this.closeUnavailableModal();
-            
+
             // Call App.setTriage to handle optimistic updates and actual API call
             await this.setTriage(seerrRequestId, 'UNAVAILABLE', reason);
         } catch (err) {

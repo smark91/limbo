@@ -1,7 +1,9 @@
 package api
 
 import (
+	"log/slog"
 	"net/http"
+	"time"
 
 	"limbo/internal/config"
 	"limbo/internal/scanner"
@@ -26,7 +28,7 @@ func NewRouter(deps Deps, frontendFS http.FileSystem) http.Handler {
 	r := chi.NewRouter()
 
 	// Middleware
-	r.Use(middleware.Logger)
+	r.Use(requestLogger())
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.RealIP)
 	r.Use(middleware.Compress(5))
@@ -70,4 +72,25 @@ func NewRouter(deps Deps, frontendFS http.FileSystem) http.Handler {
 	})
 
 	return r
+}
+
+// requestLogger logs HTTP requests using log/slog at the Debug level.
+func requestLogger() func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			start := time.Now()
+			ww := middleware.NewWrapResponseWriter(w, r.ProtoMajor)
+			
+			next.ServeHTTP(ww, r)
+			
+			slog.Debug("HTTP Request",
+				slog.String("method", r.Method),
+				slog.String("path", r.URL.Path),
+				slog.Int("status", ww.Status()),
+				slog.String("ip", r.RemoteAddr),
+				slog.Duration("duration", time.Since(start)),
+				slog.Int("bytes", ww.BytesWritten()),
+			)
+		})
+	}
 }
