@@ -864,6 +864,84 @@ func TestScannerOldTheatricalBecomesPending(t *testing.T) {
 	}
 }
 
+// TestNoReleaseDateStatusRouting verifies that when a media has no release date,
+// the Seerr/TMDB status string is used to decide between PENDING and WAITING_RELEASE.
+func TestNoReleaseDateStatusRouting(t *testing.T) {
+	type testCase struct {
+		name           string
+		movieStatus    string
+		expectedStatus string
+	}
 
+	cases := []testCase{
+		{"In Production → WAITING_RELEASE", "In Production", database.StatusWaitingRelease},
+		{"Post Production → WAITING_RELEASE", "Post Production", database.StatusWaitingRelease},
+		{"Planned → WAITING_RELEASE", "Planned", database.StatusWaitingRelease},
+		{"Released → PENDING", "Released", database.StatusPending},
+		{"Empty status → PENDING (safe default)", "", database.StatusPending},
+	}
 
+	for i, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			db := setupTestDB(t)
 
+			requestID := 5000 + i
+			tmdbID := 6000 + i
+
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				// Movie with NO release dates and status determined by test case
+				movieDetail := map[string]interface{}{
+					"id":          tmdbID,
+					"title":       "No Date Movie",
+					"posterPath":  "/nodateposter.jpg",
+					"status":      tc.movieStatus,
+					"releaseDate": "", // no generic release date either
+					"releases": map[string]interface{}{
+						"releases": []interface{}{},
+					},
+				}
+				json.NewEncoder(w).Encode(movieDetail)
+			}))
+			defer server.Close()
+
+			cfg := &config.Config{
+				SeerrURL:       server.URL,
+				SeerrPublicURL: server.URL,
+				SeerrAPIKey:    "test-key",
+				ReleaseCountry: "US",
+				ScanInterval:   10,
+				AlertDelay:     5 * 60,
+				AlertMaxAge:    24 * 60 * 60,
+			}
+			seerrClient := seerr.NewClient(cfg)
+			s := &Scanner{cfg: cfg, db: db, seerr: seerrClient}
+
+			req := seerr.SeerrRequest{
+				ID:        requestID,
+				MediaType: "movie",
+				Media: seerr.Media{
+					ID:     tmdbID,
+					TmdbID: tmdbID,
+					Status: 2, // processing — not yet available
+				},
+				CreatedAt: time.Now().Add(-30 * time.Minute).Format(time.RFC3339),
+				UpdatedAt: time.Now().Format(time.RFC3339),
+			}
+
+			if err := s.processRequest(context.Background(), req); err != nil {
+				t.Fatalf("processRequest failed: %v", err)
+			}
+
+			var entry database.TriageEntry
+			if err := db.First(&entry, "seerr_request_id = ?", requestID).Error; err != nil {
+				t.Fatalf("failed to query entry: %v", err)
+			}
+
+			if entry.Status != tc.expectedStatus {
+				t.Errorf("movie status %q: expected triage status %q, got %q",
+					tc.movieStatus, tc.expectedStatus, entry.Status)
+			}
+		})
+	}
+}

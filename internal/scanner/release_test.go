@@ -343,6 +343,80 @@ func TestReleaseInfoIsSureReleased(t *testing.T) {
 	})
 }
 
+func TestReleaseInfoIsUnreleased(t *testing.T) {
+	t.Run("Nil date with Released status is NOT unreleased", func(t *testing.T) {
+		info := ReleaseInfo{Date: nil, Source: "Unknown", MediaStatus: "Released"}
+		if info.IsUnreleased() {
+			t.Error("expected IsUnreleased() false for status 'Released'")
+		}
+	})
+
+	t.Run("Nil date with In Production is unreleased", func(t *testing.T) {
+		info := ReleaseInfo{Date: nil, Source: "Unknown", MediaStatus: "In Production"}
+		if !info.IsUnreleased() {
+			t.Error("expected IsUnreleased() true for status 'In Production'")
+		}
+	})
+
+	t.Run("Nil date with Post Production is unreleased", func(t *testing.T) {
+		info := ReleaseInfo{Date: nil, Source: "Unknown", MediaStatus: "Post Production"}
+		if !info.IsUnreleased() {
+			t.Error("expected IsUnreleased() true for status 'Post Production'")
+		}
+	})
+
+	t.Run("Nil date with Planned is unreleased", func(t *testing.T) {
+		info := ReleaseInfo{Date: nil, Source: "Unknown", MediaStatus: "Planned"}
+		if !info.IsUnreleased() {
+			t.Error("expected IsUnreleased() true for status 'Planned'")
+		}
+	})
+
+	t.Run("Nil date with Upcoming TV is unreleased", func(t *testing.T) {
+		info := ReleaseInfo{Date: nil, Source: "Unknown", MediaStatus: "Upcoming"}
+		if !info.IsUnreleased() {
+			t.Error("expected IsUnreleased() true for status 'Upcoming'")
+		}
+	})
+
+	t.Run("Nil date with Returning Series is NOT unreleased", func(t *testing.T) {
+		info := ReleaseInfo{Date: nil, Source: "Unknown", MediaStatus: "Returning Series"}
+		if info.IsUnreleased() {
+			t.Error("expected IsUnreleased() false for status 'Returning Series'")
+		}
+	})
+
+	t.Run("Nil date with Ended is NOT unreleased", func(t *testing.T) {
+		info := ReleaseInfo{Date: nil, Source: "Unknown", MediaStatus: "Ended"}
+		if info.IsUnreleased() {
+			t.Error("expected IsUnreleased() false for status 'Ended'")
+		}
+	})
+
+	t.Run("Nil date with Canceled is NOT unreleased", func(t *testing.T) {
+		info := ReleaseInfo{Date: nil, Source: "Unknown", MediaStatus: "Canceled"}
+		if info.IsUnreleased() {
+			t.Error("expected IsUnreleased() false for status 'Canceled'")
+		}
+	})
+
+	t.Run("Nil date with empty status is NOT unreleased (safe default)", func(t *testing.T) {
+		info := ReleaseInfo{Date: nil, Source: "Unknown", MediaStatus: ""}
+		if info.IsUnreleased() {
+			t.Error("expected IsUnreleased() false for empty status")
+		}
+	})
+
+	t.Run("Non-nil date always returns false regardless of status", func(t *testing.T) {
+		past := time.Now().Add(-1 * time.Hour)
+		info := ReleaseInfo{Date: &past, Source: "Unknown", MediaStatus: "In Production"}
+		if info.IsUnreleased() {
+			t.Error("expected IsUnreleased() false when Date is not nil")
+		}
+	})
+}
+
+
 
 func TestParseReleaseDateEdgeCases(t *testing.T) {
 	t.Run("Fallback parsing formats", func(t *testing.T) {

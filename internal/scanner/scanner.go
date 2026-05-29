@@ -269,7 +269,7 @@ func (s *Scanner) processRequest(ctx context.Context, req seerr.SeerrRequest) er
 			entry.Status = database.StatusCompleted
 			fulfilledAt := parseTime(req.UpdatedAt)
 			entry.FulfilledAt = &fulfilledAt
-		} else if releaseInfo.Date != nil && !releaseInfo.IsSureReleased() {
+		} else if releaseInfo.Date != nil && !releaseInfo.IsSureReleased() || releaseInfo.IsUnreleased() {
 			entry.Status = database.StatusWaitingRelease
 		} else {
 			entry.Status = database.StatusPending
@@ -300,16 +300,16 @@ func (s *Scanner) processRequest(ctx context.Context, req seerr.SeerrRequest) er
 		} else {
 			// If it was completed, but now it's no longer completed (re-requested/deleted)
 			if existing.Status == database.StatusCompleted {
-				if releaseInfo.Date != nil && !releaseInfo.IsSureReleased() {
+				if releaseInfo.Date != nil && !releaseInfo.IsSureReleased() || releaseInfo.IsUnreleased() {
 					updates["status"] = database.StatusWaitingRelease
 				} else {
 					updates["status"] = database.StatusPending
 				}
 				updates["fulfilled_at"] = nil
 				updates["notified_at"] = nil
-			} else if existing.Status == database.StatusPending && releaseInfo.Date != nil && !releaseInfo.IsSureReleased() {
+			} else if existing.Status == database.StatusPending && (releaseInfo.Date != nil && !releaseInfo.IsSureReleased() || releaseInfo.IsUnreleased()) {
 				updates["status"] = database.StatusWaitingRelease
-			} else if existing.Status == database.StatusWaitingRelease && releaseInfo.IsSureReleased() {
+			} else if existing.Status == database.StatusWaitingRelease && releaseInfo.IsSureReleased() && !releaseInfo.IsUnreleased() {
 				updates["status"] = database.StatusPending
 			}
 		}

@@ -10,8 +10,9 @@ import (
 
 // ReleaseInfo holds the evaluated release date and its source.
 type ReleaseInfo struct {
-	Date   *time.Time
-	Source string // "Digital", "Physical", "Theatrical", "Air Date", "Unknown"
+	Date        *time.Time
+	Source      string // "Digital", "Physical", "Theatrical", "Air Date", "Unknown"
+	MediaStatus string // Raw status string from TMDB/Seerr (e.g. "Released", "In Production", "Upcoming")
 }
 
 // EvaluateMovieRelease determines the best release date for a movie.
@@ -63,32 +64,32 @@ func EvaluateMovieRelease(movie *seerr.MovieDetail, cfg *config.Config) ReleaseI
 
 	// Priority Decision
 	if digitalLocal != nil {
-		return ReleaseInfo{Date: digitalLocal, Source: "Digital"}
+		return ReleaseInfo{Date: digitalLocal, Source: "Digital", MediaStatus: movie.Status}
 	}
 	if digitalGlobal != nil {
-		return ReleaseInfo{Date: digitalGlobal, Source: "Digital"}
+		return ReleaseInfo{Date: digitalGlobal, Source: "Digital", MediaStatus: movie.Status}
 	}
 	if physicalLocal != nil {
-		return ReleaseInfo{Date: physicalLocal, Source: "Physical"}
+		return ReleaseInfo{Date: physicalLocal, Source: "Physical", MediaStatus: movie.Status}
 	}
 	if physicalGlobal != nil {
-		return ReleaseInfo{Date: physicalGlobal, Source: "Physical"}
+		return ReleaseInfo{Date: physicalGlobal, Source: "Physical", MediaStatus: movie.Status}
 	}
 	if theatricalLocal != nil {
-		return ReleaseInfo{Date: theatricalLocal, Source: "Theatrical"}
+		return ReleaseInfo{Date: theatricalLocal, Source: "Theatrical", MediaStatus: movie.Status}
 	}
 	if theatricalGlobal != nil {
-		return ReleaseInfo{Date: theatricalGlobal, Source: "Theatrical"}
+		return ReleaseInfo{Date: theatricalGlobal, Source: "Theatrical", MediaStatus: movie.Status}
 	}
 
 	// Fallback to generic release date if all else fails
 	if movie.ReleaseDate != "" {
 		if t := parseSimpleDate(movie.ReleaseDate); t != nil {
-			return ReleaseInfo{Date: t, Source: "Theatrical"}
+			return ReleaseInfo{Date: t, Source: "Theatrical", MediaStatus: movie.Status}
 		}
 	}
 
-	return ReleaseInfo{Date: nil, Source: "Unknown"}
+	return ReleaseInfo{Date: nil, Source: "Unknown", MediaStatus: movie.Status}
 }
 
 // EvaluateTVRelease determines the next relevant air date for a TV show.
@@ -99,7 +100,7 @@ func EvaluateTVRelease(show *seerr.TVDetail, requestedSeasons []int) ReleaseInfo
 	// 1. If FirstAirDate is in the future, it's the most reliable premiere date
 	if show.FirstAirDate != "" {
 		if t := parseSimpleDate(show.FirstAirDate); t != nil && t.After(now) {
-			return ReleaseInfo{Date: t, Source: "Air Date"}
+			return ReleaseInfo{Date: t, Source: "Air Date", MediaStatus: show.Status}
 		}
 	}
 
@@ -154,13 +155,13 @@ func EvaluateTVRelease(show *seerr.TVDetail, requestedSeasons []int) ReleaseInfo
 	// But ONLY if we haven't already confirmed that a requested season has premiered!
 	if !requestedSeasonPremiered && show.NextEpisodeToAir != nil && show.NextEpisodeToAir.AirDate != "" {
 		if t := parseReleaseDate(show.NextEpisodeToAir.AirDate); t != nil && t.After(now) {
-			return ReleaseInfo{Date: t, Source: "Air Date"}
+			return ReleaseInfo{Date: t, Source: "Air Date", MediaStatus: show.Status}
 		}
 	}
 
 	// 3. Return the earliest future season date if we found one
 	if earliestFutureSeasonDate != nil {
-		return ReleaseInfo{Date: earliestFutureSeasonDate, Source: "Air Date"}
+		return ReleaseInfo{Date: earliestFutureSeasonDate, Source: "Air Date", MediaStatus: show.Status}
 	}
 
 	// 4. Fallback for Ended/Canceled shows or previously released content
@@ -171,16 +172,12 @@ func EvaluateTVRelease(show *seerr.TVDetail, requestedSeasons []int) ReleaseInfo
 
 	if fallbackDate != "" {
 		if t := parseSimpleDate(fallbackDate); t != nil {
-			return ReleaseInfo{Date: t, Source: "Air Date"}
+			return ReleaseInfo{Date: t, Source: "Air Date", MediaStatus: show.Status}
 		}
 	}
 
-	// 5. If explicitly "Upcoming" but no dates found, it's truly Unknown
-	if show.Status == "Upcoming" {
-		return ReleaseInfo{Date: nil, Source: "Unknown"}
-	}
-
-	return ReleaseInfo{Date: nil, Source: "Unknown"}
+	// 5. No dates found at all — return Unknown with status for downstream decision-making
+	return ReleaseInfo{Date: nil, Source: "Unknown", MediaStatus: show.Status}
 }
 
 // IsReleased returns true if the release date is in the past.
@@ -201,6 +198,34 @@ func (r ReleaseInfo) IsSureReleased() bool {
 		return r.Date.Before(sixMonthsAgo)
 	}
 	return r.Date.Before(time.Now())
+}
+
+// IsUnreleased returns true when there is no known release date but the media
+// status signals it hasn't been released yet. This is used as a fallback to
+// decide WAITING_RELEASE vs PENDING when Date is nil.
+//
+// Movies: anything other than "Released" is considered unreleased.
+// TV: only "Upcoming" is considered unreleased (other statuses like
+// "Returning Series" / "Ended" / "Canceled" are treated as already aired).
+func (r ReleaseInfo) IsUnreleased() bool {
+	if r.Date != nil {
+		// Date-based logic takes precedence; this helper is for nil-date cases only.
+		return false
+	}
+	switch r.MediaStatus {
+	case "Released":
+		// Movie is definitely out.
+		return false
+	case "Returning Series", "Ended", "Canceled", "Cancellation Requested":
+		// TV show has aired; treat as released.
+		return false
+	case "":
+		// No status information — assume released to avoid keeping in WAITING_RELEASE forever.
+		return false
+	default:
+		// "In Production", "Post Production", "Planned", "Upcoming", etc.
+		return true
+	}
 }
 
 // parseReleaseDate handles ISO 8601 dates like "2025-03-15T00:00:00.000Z"
