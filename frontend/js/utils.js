@@ -41,14 +41,14 @@ function formatDate(date) {
  * @returns {string}
  */
 function releaseIcon(source) {
-    const icons = {
-        'Digital': '📀',
-        'Physical': '💿',
-        'Theatrical': '🎬',
-        'Air Date': '📡',
-        'Unknown': '❓'
+    const mapping = {
+        'Digital': Components.icons.digital,
+        'Physical': Components.icons.physical,
+        'Theatrical': Components.icons.theatrical,
+        'Air Date': Components.icons.airdate,
+        'Unknown': Components.icons.unknown
     };
-    return icons[source] || '❓';
+    return mapping[source] || Components.icons.unknown;
 }
 
 /**
