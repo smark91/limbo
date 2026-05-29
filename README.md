@@ -141,20 +141,17 @@ secrets:
 >       retries: 3
 > ```
 
-Create a `.env` file referencing the variables above:
+Copy the example environment file to create your own configuration:
 
-```env
-DB_DRIVER=sqlite
-SQLITE_PATH=/data/limbo.db
-SEERR_URL=http://seerr:5055
-SEERR_PUBLIC_URL=https://seerr.example.com
-SEERR_API_KEY=your_seerr_api_key_here
-DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/...
+```bash
+cp .env.example .env
 ```
+
+Edit `.env` as needed to set your values.
 
 Run the container:
 ```bash
-docker compose up -d --build
+docker compose up -d
 ```
 
 ### 2. Local Development
