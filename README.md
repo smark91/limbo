@@ -1,4 +1,21 @@
-# Limbo 🎬
+<p align="center">
+  <img src="frontend/assets/logo.svg" alt="Limbo Logo" width="64" height="64">
+</p>
+
+<h1 align="center"><font size="7">Limbo</font></h1>
+
+<p align="center">
+  <strong>A lightweight, self-hosted Go dashboard and background notifier that tracks approved but unfulfilled requests from Seerr.</strong>
+</p>
+
+<p align="center">
+  <a href="#-features">Features</a> &bull;
+  <a href="#-getting-started">Getting Started</a> &bull;
+  <a href="#-configuration">Configuration</a> &bull;
+  <a href="#-development">Development</a>
+</p>
+
+---
 
 Limbo is a lightweight, self-hosted Go dashboard and background notifier that tracks approved but unfulfilled requests from **Seerr** (Overseerr/Jellyseerr). It features a beautiful, responsive, glassmorphic Single-Page Application (SPA) web UI to browse and triage requests, while handling release date evaluation and Discord notifications.
 
@@ -31,7 +48,7 @@ Limbo is a lightweight, self-hosted Go dashboard and background notifier that tr
 - **Smart Release Evaluation**:
   - **Movies**: Evaluates release dates using priority: `Digital > Physical > Theatrical` based on country codes.
   - **TV Shows**: Parses show status and tracks individual season air dates.
-- **Manual State Overrides & Notes**: Manage and override request statuses (e.g., parking a request as `NOT_AVAILABLE` or reverting to `PENDING`) and add administrator triage notes or cancellation reasons.
+- **Manual State Overrides & Reasons**: Manage and override request statuses (e.g., parking a request as `UNAVAILABLE` or reverting to `PENDING`) and add administrator cancellation/unavailable reasons.
 - **Maintenance & Cache Operations**: Purge stale requests older than a specific threshold (clearing them from both Limbo and Seerr), refresh the TMDB poster and release date cache, and trigger test Discord notifications.
 - **Discord Notifications**: Sends rich webhook embeds within a configurable release window.
 - **Premium User Experience**: Designed using a modern glassmorphic dark theme, featuring subtle micro-animations, poster image loading, status badges, and full mobile responsiveness (PWA-ready).
