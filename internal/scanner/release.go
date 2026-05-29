@@ -197,7 +197,8 @@ func (r ReleaseInfo) IsSureReleased() bool {
 		return false
 	}
 	if r.Source == "Theatrical" {
-		return false
+		sixMonthsAgo := time.Now().AddDate(0, -6, 0)
+		return r.Date.Before(sixMonthsAgo)
 	}
 	return r.Date.Before(time.Now())
 }

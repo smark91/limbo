@@ -294,11 +294,19 @@ func TestReleaseInfoIsSureReleased(t *testing.T) {
 		}
 	})
 
-	t.Run("Past Theatrical Date is not sure released", func(t *testing.T) {
+	t.Run("Recent Past Theatrical Date is not sure released", func(t *testing.T) {
 		past := time.Now().Add(-1 * time.Hour)
 		info := ReleaseInfo{Date: &past, Source: "Theatrical"}
 		if info.IsSureReleased() {
-			t.Error("expected IsSureReleased() to be false for past theatrical date")
+			t.Error("expected IsSureReleased() to be false for recent past theatrical date")
+		}
+	})
+
+	t.Run("Old Past Theatrical Date (>6 months) is sure released", func(t *testing.T) {
+		oldPast := time.Now().AddDate(0, -6, -1) // 6 months and 1 day ago
+		info := ReleaseInfo{Date: &oldPast, Source: "Theatrical"}
+		if !info.IsSureReleased() {
+			t.Error("expected IsSureReleased() to be true for theatrical date > 6 months old")
 		}
 	})
 

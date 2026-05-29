@@ -668,7 +668,7 @@ func TestScannerPastTheatricalStaysWaiting(t *testing.T) {
 				"title":       "Past Theatrical Movie",
 				"posterPath":  "/theatrical.jpg",
 				"status":      "Released",
-				"releaseDate": "2020-01-01", // Fallback -> Theatrical
+				"releaseDate": time.Now().AddDate(0, -1, 0).Format("2006-01-02"), // Recent Fallback -> Theatrical
 			}
 			json.NewEncoder(w).Encode(movieDetail)
 			return
@@ -790,6 +790,77 @@ func TestScannerActiveDownloadExistingEntry(t *testing.T) {
 
 	if entry.Status != database.StatusPending {
 		t.Errorf("expected status 'PENDING' when release date passes and it starts downloading, got %q", entry.Status)
+	}
+}
+
+func TestScannerOldTheatricalBecomesPending(t *testing.T) {
+	db := setupTestDB(t)
+	now := time.Now()
+	oldDate := now.AddDate(-1, 0, -10) // more than 6 months ago
+
+	// Seed database with a WAITING_RELEASE request
+	initialEntry := database.TriageEntry{
+		SeerrRequestID: 304,
+		MediaID:        404,
+		TmdbID:         504,
+		Title:          "Old Theatrical Movie",
+		MediaType:      "movie",
+		Status:         database.StatusWaitingRelease,
+		SeerrCreatedAt: now.Add(-24 * time.Hour),
+	}
+	if err := db.Create(&initialEntry).Error; err != nil {
+		t.Fatalf("failed to seed entry: %v", err)
+	}
+
+	// Mock Seerr API Server returning only a theatrical release date more than 6 months old
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.URL.Path == "/api/v1/movie/504" {
+			movieDetail := map[string]interface{}{
+				"id":          504,
+				"title":       "Old Theatrical Movie",
+				"posterPath":  "/theatrical.jpg",
+				"status":      "Released",
+				"releaseDate": oldDate.Format("2006-01-02"), // Fallback -> Old Theatrical
+			}
+			json.NewEncoder(w).Encode(movieDetail)
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer server.Close()
+
+	cfg := &config.Config{
+		SeerrURL:    server.URL,
+		SeerrAPIKey: "test-key",
+	}
+	s := New(cfg, db, seerr.NewClient(cfg))
+
+	req := seerr.SeerrRequest{
+		ID:        304,
+		Status:    2,
+		MediaType: "movie",
+		Media: seerr.Media{
+			ID:     404,
+			TmdbID: 504,
+			Status: 2,
+		},
+		CreatedAt: now.Add(-5 * time.Hour).Format(time.RFC3339),
+		UpdatedAt: now.Format(time.RFC3339),
+	}
+
+	err := s.processRequest(context.Background(), req)
+	if err != nil {
+		t.Fatalf("failed to process request: %v", err)
+	}
+
+	var entry database.TriageEntry
+	if err := db.First(&entry, "seerr_request_id = ?", 304).Error; err != nil {
+		t.Fatalf("failed to query entry: %v", err)
+	}
+
+	if entry.Status != database.StatusPending {
+		t.Errorf("expected status to become 'PENDING' when theatrical release is more than 6 months old, got %q", entry.Status)
 	}
 }
 
