@@ -24,14 +24,14 @@ Limbo is a lightweight, self-hosted Go dashboard and background notifier that tr
 </p>
 
 <details>
-  <summary>📸 View Light Mode & Triage Screens</summary>
+  <summary>📸 View Light Mode & Maintenance Screens</summary>
   <br>
   <p align="center">
     <strong>Light Mode Dashboard</strong><br><br>
     <img src=".github/screenshots/dashboard-light.png" alt="Limbo Dashboard Light Mode" width="800">
   </p>
   <p align="center">
-    <strong>Triage & Maintenance Operations</strong><br><br>
+    <strong>Maintenance Operations</strong><br><br>
     <img src=".github/screenshots/maintenance.png" alt="Limbo Triage & Maintenance Details" width="800">
   </p>
 </details>
