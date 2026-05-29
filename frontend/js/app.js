@@ -24,6 +24,14 @@ const App = {
     async init() {
         console.log('Limbo initializing...');
 
+        // Check if we just updated the service worker and reload completed
+        if (localStorage.getItem('sw-updated') === 'true') {
+            localStorage.removeItem('sw-updated');
+            setTimeout(() => {
+                showToast('App updated!', 'success');
+            }, 500);
+        }
+
         // Parse view and filters from URL query parameters
         this.parseURLParams();
 
@@ -37,11 +45,11 @@ const App = {
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('/sw.js')
                 .then(reg => {
-                    console.log('✅ ServiceWorker registered on scope:', reg.scope);
+                    console.log('ServiceWorker registered on scope:', reg.scope);
                     this.initNotifications(reg);
                     this.trackSWUpdates(reg);
                 })
-                .catch(err => console.error('❌ ServiceWorker registration failed:', err));
+                .catch(err => console.error('ServiceWorker registration failed:', err));
         }
 
         // Sync filter UI elements with state
@@ -69,7 +77,9 @@ const App = {
         }
 
         // Show skeletons
-        Components.showSkeletons();
+        if (this.state.currentView === 'dashboard') {
+            Components.showSkeletons();
+        }
 
         // Load initial data
         await Promise.all([
@@ -603,7 +613,7 @@ const App = {
             if (subscription) {
                 // Verify/update subscription on server
                 await API.subscribeNotifications(subscription);
-                console.log('✅ PWA: Already subscribed to push notifications');
+                console.log('PWA: Already subscribed to push notifications');
                 return;
             }
 
@@ -643,9 +653,11 @@ const App = {
 
         // Reload the page once the new service worker takes control (after skipWaiting)
         let refreshing = false;
+        const hadController = !!navigator.serviceWorker.controller;
         navigator.serviceWorker.addEventListener('controllerchange', () => {
-            if (refreshing) return;
+            if (refreshing || !hadController) return;
             refreshing = true;
+            localStorage.setItem('sw-updated', 'true');
             window.location.reload();
         });
     },
@@ -654,30 +666,10 @@ const App = {
      * Show a non-intrusive toast requesting the user to update the app.
      */
     showUpdatePrompt(worker) {
-        const container = document.getElementById('toast-container');
-        if (!container) return;
-
-        const toast = document.createElement('div');
-        // Styled beautifully following tailwind classes
-        toast.className = 'flex items-center justify-between gap-4 py-3.5 px-4 rounded-xl border shadow-2xl text-xs font-semibold bg-slate-900/95 text-white border-indigo-500/30 max-w-sm w-full transition-all duration-300 transform translate-y-0 opacity-100';
-
-        toast.innerHTML = `
-            <div class="flex items-center gap-2">
-                <span class="text-sm font-bold text-indigo-400">✨</span>
-                <span>New version installed.</span>
-            </div>
-            <button class="bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-lg text-[0.75rem] font-bold cursor-pointer transition-all duration-150 hover:-translate-y-px active:translate-y-0 shrink-0" id="btn-sw-update">
-                Reload
-            </button>
-        `;
-
-        container.appendChild(toast);
-
-        const btn = toast.querySelector('#btn-sw-update');
-        btn.addEventListener('click', () => {
+        showToast('App updated. Reloading...', 'info');
+        setTimeout(() => {
             worker.postMessage({ action: 'skipWaiting' });
-            toast.remove();
-        });
+        }, 1500);
     },
 
     /**

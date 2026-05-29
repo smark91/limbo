@@ -56,7 +56,7 @@
                 </div>
                 <span
                     class="text-[0.7rem] font-medium text-slate-500 dark:text-slate-400 py-0.5 px-1.5 bg-slate-100 dark:bg-slate-800 rounded border border-slate-200 dark:border-slate-700"
-                    id="logo-version"></span>
+                    id="logo-version">···</span>
             </div>
 
             <!-- 2. Sync Actions (Order 2 on Mobile, Order 3 on Desktop) -->
@@ -438,47 +438,70 @@
         </section>
 
         <!-- Unavailable Reason Modal -->
-        <div id="unavailable-modal" class="fixed inset-0 z-[200] hidden [&.hidden]:hidden flex items-center justify-center p-4">
+        <div id="unavailable-modal"
+            class="fixed inset-0 z-[200] hidden [&.hidden]:hidden flex items-center justify-center p-4">
             <!-- Backdrop -->
-            <div class="absolute inset-0 bg-slate-900/60 dark:bg-slate-950/70 backdrop-blur-sm" onclick="App.closeUnavailableModal()"></div>
+            <div class="absolute inset-0 bg-slate-900/60 dark:bg-slate-950/70 backdrop-blur-sm"
+                onclick="App.closeUnavailableModal()"></div>
             <!-- Modal Content -->
-            <div class="relative w-full max-w-md bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden p-6 flex flex-col gap-4 animate-fade-in-up">
+            <div
+                class="relative w-full max-w-md bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden p-6 flex flex-col gap-4 animate-fade-in-up">
                 <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
                     <h3 class="text-base font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
                         <span>Set Unavailable Reason</span>
                     </h3>
-                    <button class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-250 cursor-pointer border-none bg-transparent flex p-1" onclick="App.closeUnavailableModal()">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                    <button
+                        class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-250 cursor-pointer border-none bg-transparent flex p-1"
+                        onclick="App.closeUnavailableModal()">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
                     </button>
                 </div>
-                
+
                 <form id="unavailable-form" onsubmit="App.saveUnavailableReason(event)" class="flex flex-col gap-4">
                     <input type="hidden" id="modal-seerr-id">
-                    
+
                     <div class="flex flex-col gap-1.5">
-                        <span class="text-[0.65rem] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Media</span>
+                        <span
+                            class="text-[0.65rem] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Media</span>
                         <div id="modal-title" class="text-sm font-semibold text-slate-800 dark:text-slate-200"></div>
                     </div>
 
                     <div class="flex flex-col gap-1.5">
-                        <label for="modal-reason-select" class="text-[0.65rem] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Preset Reasons</label>
-                        <select id="modal-reason-select" class="form-select w-full py-2.5 px-3 rounded bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 text-slate-850 dark:text-slate-100 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/25 cursor-pointer appearance-none bg-[url('data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2212%22 height=%2212%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%239ca3b4%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M6 9l6 6 6-6%22/%3E%3C/svg%3E')] bg-no-repeat bg-[position:right_10px_center]" onchange="App.onUnavailableReasonPresetChange()">
+                        <label for="modal-reason-select"
+                            class="text-[0.65rem] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Preset
+                            Reasons</label>
+                        <select id="modal-reason-select"
+                            class="form-select w-full py-2.5 px-3 rounded bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 text-slate-850 dark:text-slate-100 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/25 cursor-pointer appearance-none bg-[url('data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2212%22 height=%2212%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%239ca3b4%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M6 9l6 6 6-6%22/%3E%3C/svg%3E')] bg-no-repeat bg-[position:right_10px_center]"
+                            onchange="App.onUnavailableReasonPresetChange()">
                             <option value="none" class="bg-white dark:bg-slate-900">No reason</option>
-                            <option value="No active sources (torrents/Usenet)" class="bg-white dark:bg-slate-900">No active sources (torrents/Usenet)</option>
-                            <option value="Missing language / subtitles" class="bg-white dark:bg-slate-900">Missing language / subtitles</option>
-                            <option value="Wrong metadata / mapping issue" class="bg-white dark:bg-slate-900">Wrong metadata / mapping issue</option>
+                            <option value="No active sources (torrents/Usenet)" class="bg-white dark:bg-slate-900">No
+                                active sources (torrents/Usenet)</option>
+                            <option value="Missing language / subtitles" class="bg-white dark:bg-slate-900">Missing
+                                language / subtitles</option>
+                            <option value="Wrong metadata / mapping issue" class="bg-white dark:bg-slate-900">Wrong
+                                metadata / mapping issue</option>
                             <option value="custom" class="bg-white dark:bg-slate-900">Others (Write below)</option>
                         </select>
                     </div>
 
                     <div class="flex flex-col gap-1.5 hidden [&.hidden]:hidden" id="modal-custom-reason-group">
-                        <label for="modal-custom-reason" class="text-[0.65rem] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Custom Reason</label>
-                        <input type="text" id="modal-custom-reason" placeholder="Type custom reason..." class="w-full py-2 px-3 rounded bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 text-slate-850 dark:text-slate-100 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/25">
+                        <label for="modal-custom-reason"
+                            class="text-[0.65rem] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Custom
+                            Reason</label>
+                        <input type="text" id="modal-custom-reason" placeholder="Type custom reason..."
+                            class="w-full py-2 px-3 rounded bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 text-slate-850 dark:text-slate-100 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/25">
                     </div>
 
                     <div class="flex gap-3 justify-end pt-3 border-t border-slate-100 dark:border-slate-800">
-                        <button type="button" class="btn py-2 px-4 border border-slate-200 dark:border-slate-700 rounded bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-semibold cursor-pointer transition hover:bg-slate-100 dark:hover:bg-slate-700" onclick="App.closeUnavailableModal()">Cancel</button>
-                        <button type="submit" class="btn py-2 px-4 rounded bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold cursor-pointer shadow-lg hover:-translate-y-px transition">Confirm</button>
+                        <button type="button"
+                            class="btn py-2 px-4 border border-slate-200 dark:border-slate-700 rounded bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-semibold cursor-pointer transition hover:bg-slate-100 dark:hover:bg-slate-700"
+                            onclick="App.closeUnavailableModal()">Cancel</button>
+                        <button type="submit"
+                            class="btn py-2 px-4 rounded bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold cursor-pointer shadow-lg hover:-translate-y-px transition">Confirm</button>
                     </div>
                 </form>
             </div>
