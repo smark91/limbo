@@ -239,14 +239,14 @@ func handleGetCacheInfo(db *gorm.DB, cfg *config.Config) http.HandlerFunc {
 	}
 }
 
-// handleTestNotification triggers a test Discord notification.
+// handleTestNotification triggers a test notification (Discord and/or VAPID).
 func handleTestNotification(db *gorm.DB, scannerInstance *scanner.Scanner, seerrClient *seerr.Client) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
 
 		notifier := scannerInstance.Notifier()
-		if notifier == nil || !notifier.IsDiscordConfigured() {
-			http.Error(w, "Discord notifications are not configured (DISCORD_WEBHOOK_URL is empty)", http.StatusBadRequest)
+		if notifier == nil || (!notifier.IsDiscordConfigured() && !notifier.IsVAPIDConfigured()) {
+			http.Error(w, "Notifications are not configured (both Discord and Web Push are unavailable)", http.StatusBadRequest)
 			return
 		}
 

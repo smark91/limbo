@@ -540,6 +540,26 @@ func TestTestNotificationHandler(t *testing.T) {
 		}
 	})
 
+	// Sub-test 3.5: VAPID Configured Only (Discord unconfigured)
+	t.Run("VAPID Configured Only", func(t *testing.T) {
+		vapidCfg := &config.Config{
+			DBDriver:        "sqlite",
+			VapidPublicKey:  "test-public-key",
+			VapidPrivateKey: "test-private-key",
+		}
+		vapidScanner := scanner.New(vapidCfg, db, seerrClient)
+		reqBody, _ := json.Marshal(map[string]string{"type": "system"})
+		req, _ := http.NewRequest("POST", "/api/maintenance/test-notification", bytes.NewBuffer(reqBody))
+		rr := httptest.NewRecorder()
+
+		handler := handleTestNotification(db, vapidScanner, seerrClient)
+		handler.ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusOK {
+			t.Errorf("expected status 200 when only VAPID is configured, got %d. Body: %s", rr.Code, rr.Body.String())
+		}
+	})
+
 	// Sub-test 4: Invalid JSON body
 	t.Run("Invalid JSON body", func(t *testing.T) {
 		req, _ := http.NewRequest("POST", "/api/maintenance/test-notification", bytes.NewBuffer([]byte("{invalid")))

@@ -591,10 +591,10 @@ const App = {
                 return;
             }
 
-            // Get VAPID public key from backend
+            // Get Web Push public key from backend
             const { publicKey } = await API.getNotificationsConfig();
             if (!publicKey) {
-                console.warn('PWA: VAPID public key not configured on server.');
+                console.warn('PWA: Web Push public key not configured on server.');
                 return;
             }
 

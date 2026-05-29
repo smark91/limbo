@@ -112,6 +112,17 @@ func TestNotifier(t *testing.T) {
 		}
 	})
 
+	t.Run("IsVAPIDConfigured", func(t *testing.T) {
+		if !notifier.IsVAPIDConfigured() {
+			t.Errorf("expected IsVAPIDConfigured to be true")
+		}
+
+		emptyNotifier := NewNotifier(&config.Config{}, db)
+		if emptyNotifier.IsVAPIDConfigured() {
+			t.Errorf("expected IsVAPIDConfigured to be false for empty keys")
+		}
+	})
+
 	t.Run("NotifyUnfulfilled - Success Discord and WebPush", func(t *testing.T) {
 		// Clean up subscriptions
 		db.Exec("DELETE FROM push_subscriptions")

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'limbo-cache-v40';
+const CACHE_NAME = 'limbo-cache-v45';
 const ASSETS = [
   '/',
   '/index.html',
@@ -101,7 +101,7 @@ self.addEventListener('push', event => {
 
   const options = {
     body: data.body,
-    icon: '/assets/logo.svg',
+    icon: data.image || '/assets/logo.svg',
     badge: '/assets/logo.svg',
     data: {
       url: data.url || '/',
@@ -109,6 +109,10 @@ self.addEventListener('push', event => {
     },
     actions: actions
   };
+
+  if (data.image) {
+    options.image = data.image;
+  }
 
   event.waitUntil(
     self.registration.showNotification(data.title, options)

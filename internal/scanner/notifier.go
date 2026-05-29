@@ -74,7 +74,7 @@ func (n *Notifier) NotifyUnfulfilled(title, mediaType, posterURL, serviceURL str
 	}
 
 	// 2. Send Web Push notifications to registered clients
-	pushErr = n.sendWebPush(title, mediaType, serviceURL)
+	pushErr = n.sendWebPush(title, mediaType, posterURL, serviceURL)
 
 	// Return error if either notification dispatch failed
 	if discordErr != nil {
@@ -147,7 +147,12 @@ func (n *Notifier) sendDiscord(title, mediaType, posterURL, serviceURL string, r
 	return nil
 }
 
-func (n *Notifier) sendWebPush(title, mediaType, serviceURL string) error {
+func (n *Notifier) sendWebPush(title, mediaType, posterURL, serviceURL string) error {
+	if n.cfg.VapidPublicKey == "" || n.cfg.VapidPrivateKey == "" {
+		slog.Debug("VAPID keys not configured, skipping Web Push")
+		return nil
+	}
+
 	var subs []database.PushSubscription
 	if err := n.db.Find(&subs).Error; err != nil {
 		return fmt.Errorf("failed to fetch push subscriptions: %w", err)
@@ -171,9 +176,10 @@ func (n *Notifier) sendWebPush(title, mediaType, serviceURL string) error {
 
 	payload, err := json.Marshal(map[string]string{
 		"title":    titleStr,
-		"body":     "This request didn't get fullfilled.",
+		"body":     "This request didn't get fulfilled.",
 		"url":      destURL,
 		"seerrUrl": n.cfg.SeerrPublicURL,
+		"image":    posterURL,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to marshal push payload: %w", err)
@@ -233,4 +239,9 @@ func formatDuration(d time.Duration) string {
 // IsDiscordConfigured returns true if a Discord Webhook URL is set.
 func (n *Notifier) IsDiscordConfigured() bool {
 	return n.cfg.DiscordWebhookURL != ""
+}
+
+// IsVAPIDConfigured returns true if VAPID keys are configured.
+func (n *Notifier) IsVAPIDConfigured() bool {
+	return n.cfg.VapidPublicKey != "" && n.cfg.VapidPrivateKey != ""
 }
