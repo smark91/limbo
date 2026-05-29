@@ -98,8 +98,6 @@ services:
   limbo:
     image: ghcr.io/smark91/limbo:latest
     container_name: limbo
-    build:
-      context: ./app
     restart: unless-stopped
     volumes:
       - ./config:/data
