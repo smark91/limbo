@@ -40,11 +40,7 @@ Limbo is a lightweight, self-hosted Go dashboard and background notifier that tr
 
 ## ✨ Features
 
-- **Automated Sync & State Machine**: Periodically checks Seerr for approved requests, transitioning entries through status states:
-  - `PENDING`: Released but not yet available or in the download client.
-  - `WAITING_RELEASE`: Release date is in the future.
-  - `NOT_AVAILABLE`: Manually marked as unavailable or unfulfillable.
-  - `COMPLETED`: Automatically resolved when Seerr reports the media as partially or fully available.
+- **Automated Sync & State Machine**: Periodically checks Seerr for approved requests, transitioning entries through statuses.
 - **Smart Release Evaluation**:
   - **Movies**: Evaluates release dates using priority: `Digital > Physical > Theatrical` based on country codes.
   - **TV Shows**: Parses show status and tracks individual season air dates.
