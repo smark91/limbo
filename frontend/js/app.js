@@ -279,23 +279,32 @@ const App = {
         }
     },
 
-    async setTriage(seerrRequestId, status) {
+    async setTriage(seerrRequestId, status, reason = null) {
         // 0. Prevent updating if the status is already the same
         const request = this.state.requests.find(r => r.seerrRequestId === seerrRequestId);
-        if (request && request.status === status) {
+        if (request && request.status === status && reason === null) {
             const dropdown = document.getElementById(`triage-dropdown-${seerrRequestId}`);
             if (dropdown) dropdown.classList.remove('open');
             return;
         }
 
-        // 1. Immediately close the dropdown so UI feels responsive
+        // 1. If transitioning to UNAVAILABLE and no reason was provided, intercept to show modal
+        if (status === 'UNAVAILABLE' && reason === null) {
+            const dropdown = document.getElementById(`triage-dropdown-${seerrRequestId}`);
+            if (dropdown) dropdown.classList.remove('open');
+
+            this.promptUnavailableReason(seerrRequestId);
+            return;
+        }
+
+        // 2. Immediately close the dropdown so UI feels responsive
         const dropdown = document.getElementById(`triage-dropdown-${seerrRequestId}`);
         if (dropdown) dropdown.classList.remove('open');
 
-        // 2. Locate the request card in the DOM
+        // 3. Locate the request card in the DOM
         const card = document.querySelector(`.request-card[data-request-id="${seerrRequestId}"]`);
 
-        // 3. If we are currently filtering by status, and the new status doesn't match the current status filter,
+        // 4. If we are currently filtering by status, and the new status doesn't match the current status filter,
         // we can fade out the card and remove it from our local state.
         const currentFilterStatus = this.state.filters.status;
         const matchesFilter = !currentFilterStatus || currentFilterStatus === status;
@@ -347,7 +356,15 @@ const App = {
         }
 
         try {
-            await API.setTriage({ seerrRequestId, status });
+            let actualReason = reason;
+            if (status !== 'UNAVAILABLE') {
+                actualReason = ""; // Clear reason on transition away from unavailable
+            }
+            await API.setTriage({
+                seerrRequestId,
+                status,
+                reason: actualReason
+            });
             showToast(`Status set to ${statusLabel(status)}`, 'success');
 
             // Refresh background data to keep everything completely in sync (stats bar etc.)
@@ -825,6 +842,125 @@ const App = {
         const queryString = params.toString();
         const newURL = window.location.pathname + (queryString ? `?${queryString}` : '');
         window.history.replaceState(null, '', newURL);
+    },
+
+    /**
+     * Open the unavailable reason modal.
+     */
+    promptUnavailableReason(seerrRequestId) {
+        const request = this.state.requests.find(r => r.seerrRequestId === seerrRequestId);
+        if (!request) {
+            console.error(`[App] Request with ID ${seerrRequestId} not found`);
+            return;
+        }
+
+        // Populating modal fields
+        document.getElementById('modal-seerr-id').value = seerrRequestId;
+        document.getElementById('modal-title').textContent = request.title || 'Unknown Title';
+        
+        // Check if existing reason matches one of the presets
+        const existingReason = request.reason || '';
+        const select = document.getElementById('modal-reason-select');
+        const customInput = document.getElementById('modal-custom-reason');
+        
+        const presets = [
+            "No active sources (torrents/Usenet)",
+            "Missing language / subtitles",
+            "Wrong metadata / mapping issue"
+        ];
+        
+        if (existingReason === '') {
+            select.value = 'none';
+            customInput.value = '';
+        } else if (presets.includes(existingReason)) {
+            select.value = existingReason;
+            customInput.value = '';
+        } else {
+            select.value = 'custom';
+            customInput.value = existingReason;
+        }
+
+        // Update custom field group visibility
+        const customGroup = document.getElementById('modal-custom-reason-group');
+        if (customGroup) {
+            customGroup.classList.toggle('hidden', select.value !== 'custom');
+        }
+
+        // Show the modal
+        const modal = document.getElementById('unavailable-modal');
+        if (modal) {
+            modal.classList.remove('hidden');
+            // Focus the select field automatically so Tab navigation works inside the modal
+            setTimeout(() => {
+                const selectElement = document.getElementById('modal-reason-select');
+                if (selectElement) selectElement.focus();
+            }, 50);
+        }
+    },
+
+    /**
+     * Close the unavailable reason modal.
+     */
+    closeUnavailableModal() {
+        const modal = document.getElementById('unavailable-modal');
+        if (modal) {
+            modal.classList.add('hidden');
+        }
+    },
+
+    /**
+     * Toggle the visibility of custom reason field (without pre-filling preset text).
+     */
+    onUnavailableReasonPresetChange() {
+        const selectValue = document.getElementById('modal-reason-select').value;
+        const customGroup = document.getElementById('modal-custom-reason-group');
+        
+        if (customGroup) {
+            customGroup.classList.toggle('hidden', selectValue !== 'custom');
+        }
+        
+        // Automatically focus the custom reason field when selecting custom
+        if (selectValue === 'custom') {
+            setTimeout(() => {
+                const customInput = document.getElementById('modal-custom-reason');
+                if (customInput) customInput.focus();
+            }, 50);
+        }
+    },
+
+    /**
+     * Submit and save the unavailable reason.
+     */
+    async saveUnavailableReason(event) {
+        if (event) event.preventDefault();
+
+        const seerrRequestId = parseInt(document.getElementById('modal-seerr-id').value, 10);
+        const selectValue = document.getElementById('modal-reason-select').value;
+        let reason = '';
+        if (selectValue === 'custom') {
+            reason = document.getElementById('modal-custom-reason').value.trim();
+        } else if (selectValue !== 'none') {
+            reason = selectValue;
+        }
+
+        // Show saving state on button
+        const submitBtn = event.target.querySelector('button[type="submit"]');
+        const origText = submitBtn.textContent;
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Saving...';
+
+        try {
+            // Close modal
+            this.closeUnavailableModal();
+            
+            // Call App.setTriage to handle optimistic updates and actual API call
+            await this.setTriage(seerrRequestId, 'UNAVAILABLE', reason);
+        } catch (err) {
+            showToast(err.message || 'Failed to update unavailable reason', 'error');
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.textContent = origText;
+        }
     }
 };
 

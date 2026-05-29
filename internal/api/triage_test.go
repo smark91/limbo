@@ -90,7 +90,7 @@ func TestTriageEndpoints(t *testing.T) {
 		reqBody, _ := json.Marshal(map[string]interface{}{
 			"seerrRequestId": 123,
 			"status":         "UNAVAILABLE",
-			"notes":          "Will check later",
+			"reason":         "Missing language / subtitles",
 		})
 		req, _ := http.NewRequest("POST", "/api/triage", bytes.NewBuffer(reqBody))
 		req.Header.Set("Content-Type", "application/json")
@@ -111,8 +111,8 @@ func TestTriageEndpoints(t *testing.T) {
 		if entry.Status != "UNAVAILABLE" {
 			t.Errorf("expected Status 'UNAVAILABLE', got %s", entry.Status)
 		}
-		if entry.Notes == nil || *entry.Notes != "Will check later" {
-			t.Errorf("expected Notes 'Will check later', got %v", entry.Notes)
+		if entry.Reason == nil || *entry.Reason != "Missing language / subtitles" {
+			t.Errorf("expected Reason 'Missing language / subtitles', got %v", entry.Reason)
 		}
 	})
 

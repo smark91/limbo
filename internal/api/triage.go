@@ -16,7 +16,6 @@ import (
 type triageRequest struct {
 	SeerrRequestID int     `json:"seerrRequestId"`
 	Status         string  `json:"status"`
-	Notes          *string `json:"notes,omitempty"`
 	Reason         *string `json:"reason,omitempty"`
 }
 
@@ -94,7 +93,6 @@ func handlePostTriage(db *gorm.DB) http.HandlerFunc {
 			entry = database.TriageEntry{
 				SeerrRequestID: req.SeerrRequestID,
 				Status:         req.Status,
-				Notes:          req.Notes,
 				Reason:         req.Reason,
 			}
 			if entry.Status == "" || entry.Status == database.StatusCompleted {
@@ -118,9 +116,6 @@ func handlePostTriage(db *gorm.DB) http.HandlerFunc {
 			updates := map[string]interface{}{}
 			if req.Status != "" {
 				updates["status"] = req.Status
-			}
-			if req.Notes != nil {
-				updates["notes"] = req.Notes
 			}
 			if req.Reason != nil {
 				updates["reason"] = req.Reason

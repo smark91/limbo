@@ -30,7 +30,6 @@ type TriageEntry struct {
 	MediaType      string     `json:"mediaType"`      // "movie" or "tv"
 	Title          string     `json:"title"`           // Cached title from Seerr
 	Status         string     `gorm:"default:PENDING" json:"status"`
-	Notes          *string    `json:"notes,omitempty"`
 	Reason         *string    `json:"reason,omitempty"`        // Why unavailable
 	ReleaseDate    *time.Time `json:"releaseDate,omitempty"`
 	ReleaseSource  *string    `json:"releaseSource,omitempty"` // "Digital", "Physical", "Theatrical", "Unknown"

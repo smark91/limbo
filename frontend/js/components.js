@@ -16,7 +16,8 @@ const Components = {
         tv: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#EC4899" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="15" rx="2" ry="2"></rect><polyline points="17 2 12 7 7 2"></polyline></svg>`,
         chevron: `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>`,
         arrowLeft: `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>`,
-        arrowRight: `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>`
+        arrowRight: `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>`,
+        ban: `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line></svg>`
     },
 
     /**
@@ -138,6 +139,13 @@ const Components = {
                             </div>
                         </div>
                     </div>
+                    ${req.reason ? `
+                    <div class="px-4 pb-3 text-[0.8rem]">
+                        <div class="flex items-center gap-2 bg-rose-500/5 dark:bg-rose-500/5 p-2 rounded-lg border border-rose-500/10 text-rose-600 dark:text-rose-450">
+                            <span class="shrink-0 font-semibold flex items-center justify-center" title="Reason for unavailable">${Components.icons.ban}</span>
+                            <span class="break-words w-full" id="reason-text-${req.seerrRequestId}">${req.reason}</span>
+                        </div>
+                    </div>` : ''}
                     <div class="p-4 pt-0.5 mt-auto">
                         <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full">
                             ${Components._renderTriageAction(req)}
