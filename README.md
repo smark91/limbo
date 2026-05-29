@@ -188,9 +188,3 @@ docker build --target tester .
 ## 📄 License
 
 This project is licensed under the GNU Affero General Public License v3 - see the `LICENSE` file for details.
-
----
-
-## 🤖 AI Disclaimer
-
-This project was built with significant AI assistance (Google Gemini / Antigravity). The backend, frontend, tests, and documentation were all written collaboratively with an AI coding assistant. All feature decisions, architecture choices, and code reviews were made by the author. The AI acted as a pair programmer — not an autonomous agent.
