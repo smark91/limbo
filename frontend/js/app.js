@@ -413,21 +413,18 @@ const App = {
             if (navMaintenance) navMaintenance.classList.remove('active');
             if (maintenanceView) maintenanceView.classList.add('hidden');
 
-            // Show dashboard elements
-            const showGrid = this.state.requests && this.state.requests.length > 0;
+            // Show base dashboard elements (stats-bar, filter-bar)
             dashboardElements.forEach(el => {
-                if (el) {
-                    if (el.id === 'empty-state') {
-                        el.classList.toggle('hidden', showGrid);
-                    } else if (el.id === 'skeleton-container') {
-                        el.classList.add('hidden');
-                    } else if (el.id === 'requests-grid') {
-                        el.classList.toggle('hidden', !showGrid);
-                    } else {
-                        el.classList.remove('hidden');
-                    }
+                if (el && el.id !== 'requests-grid' && el.id !== 'empty-state' && el.id !== 'skeleton-container') {
+                    el.classList.remove('hidden');
                 }
             });
+
+            // Render stats & requests (handles showing/hiding components and values dynamically)
+            if (this.state.stats) {
+                Components.renderStats(this.state.stats, this.state.filters.status);
+            }
+            Components.renderRequests(this.state.requests);
         } else {
             if (navDashboard) navDashboard.classList.remove('active');
             if (navMaintenance) navMaintenance.classList.add('active');
