@@ -57,12 +57,12 @@ func (s *Scanner) Run(ctx context.Context) {
 	slog.InfoContext(ctx, "Scanner starting", slog.Duration("interval", s.cfg.ScanInterval))
 
 	// Run immediately on startup
-	s.scan(ctx)
+	_ = s.scan(ctx)
 
 	for {
 		select {
 		case <-ticker.C:
-			s.scan(ctx)
+			_ = s.scan(ctx)
 		case <-ctx.Done():
 			slog.InfoContext(ctx, "Scanner stopped")
 			return
@@ -71,8 +71,8 @@ func (s *Scanner) Run(ctx context.Context) {
 }
 
 // TriggerScan runs an immediate scan (for the /api/sync endpoint).
-func (s *Scanner) TriggerScan(ctx context.Context) {
-	s.scan(ctx)
+func (s *Scanner) TriggerScan(ctx context.Context) error {
+	return s.scan(ctx)
 }
 
 // LastScanTime returns when the last scan completed.
@@ -95,7 +95,7 @@ type preparedUpdate struct {
 	shouldNotify bool
 }
 
-func (s *Scanner) scan(ctx context.Context) {
+func (s *Scanner) scan(ctx context.Context) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -105,7 +105,7 @@ func (s *Scanner) scan(ctx context.Context) {
 	requests, err := s.seerr.GetApprovedRequests(ctx)
 	if err != nil {
 		slog.ErrorContext(ctx, "Error fetching requests from Seerr", slog.Any("error", err))
-		return
+		return err
 	}
 
 	slog.InfoContext(ctx, "Fetched approved requests", slog.Int("count", len(requests)))
@@ -114,7 +114,7 @@ func (s *Scanner) scan(ctx context.Context) {
 	var existingEntries []database.TriageEntry
 	if err := s.db.WithContext(ctx).Find(&existingEntries).Error; err != nil {
 		slog.ErrorContext(ctx, "Error fetching existing database entries", slog.Any("error", err))
-		return
+		return err
 	}
 	existingMap := make(map[int]database.TriageEntry)
 	for _, entry := range existingEntries {
@@ -137,7 +137,7 @@ func (s *Scanner) scan(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			slog.InfoContext(ctx, "Scan cycle interrupted by context cancellation")
-			return
+			return ctx.Err()
 		default:
 		}
 
@@ -246,7 +246,7 @@ func (s *Scanner) scan(ctx context.Context) {
 		})
 		if err != nil {
 			slog.ErrorContext(ctx, "Error executing database update transaction", slog.Any("error", err))
-			return
+			return err
 		}
 	}
 
@@ -291,6 +291,7 @@ func (s *Scanner) scan(ctx context.Context) {
 		slog.Int("processed", processed),
 		slog.Duration("duration", time.Since(startTime).Round(time.Millisecond)),
 	)
+	return nil
 }
 
 func (s *Scanner) prepareRequestUpdate(ctx context.Context, req seerr.SeerrRequest, existingMap map[int]database.TriageEntry) (*preparedUpdate, error) {

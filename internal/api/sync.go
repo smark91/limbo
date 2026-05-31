@@ -13,7 +13,14 @@ func handleSync(s *scanner.Scanner) http.HandlerFunc {
 		ctx := r.Context()
 		slog.InfoContext(ctx, "Manual sync triggered via API")
 
-		s.TriggerScan(ctx)
+		if err := s.TriggerScan(ctx); err != nil {
+			slog.ErrorContext(ctx, "Manual sync failed", slog.Any("error", err))
+			writeJSON(w, r, http.StatusBadGateway, map[string]interface{}{
+				"success": false,
+				"error":   "Failed to sync with Seerr: " + err.Error(),
+			})
+			return
+		}
 
 		writeJSON(w, r, http.StatusOK, map[string]interface{}{
 			"success":  true,
