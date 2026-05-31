@@ -164,6 +164,19 @@ The frontend uses **Tailwind CSS v4** with the standalone CLI (no Node.js/npm re
 
 ---
 
+## 🔒 Security & Sensitive Information Sanitization
+
+To prevent accidental leakage of sensitive keys, tokens, or credentials (such as `SEERR_API_KEY`, `POSTGRES_URL`, `DISCORD_WEBHOOK_URL`, and VAPID private keys) in log outputs, API responses, or error strings, adhere to the following rules:
+
+1. **No Sensitive Logging**: Never log raw configuration values containing secrets. For example, do not print the raw `POSTGRES_URL` connection string (which contains passwords) or log the entire `Config` struct. Only log safe metadata like the database driver name (`postgres` or `sqlite`).
+2. **HTTP Request Logging**: The custom request logger middleware must only log generic HTTP metadata (`method`, `path`, `status`, `ip`, `duration`, `bytes`). Never log HTTP headers (like `X-Api-Key` or `Authorization`), cookies, or request bodies.
+3. **Discord Webhook Sanitization**: If a Discord webhook request fails or returns an error status code, do not include the raw target URL or webhook token in error messages or logs. Return generic statuses (e.g., `discord webhook returned 400`).
+4. **API Client Error Sanitization**: When communicating with external APIs (like Seerr), explicitly map authorization and authentication status codes (401/403) to static error messages referring only to the env variable name (e.g., `check if SEERR_API_KEY is correct`) rather than propagating raw tokens or request bodies.
+5. **VAPID Key Isolation**: Ensure that auto-generated VAPID key pairs are loaded or created silently, only logging the event and not the key values themselves.
+6. **API Response Security**: Validate that any configuration/health API endpoints only expose public metadata (such as `VapidPublicKey`). Private config parameters or webhook endpoints must never be serialized or returned to client responses.
+
+---
+
 ## 🛡️ Coding Best Practices
 
 1. **Structured Logging**: Always use `log/slog` rather than standard standard library `log` print statements.

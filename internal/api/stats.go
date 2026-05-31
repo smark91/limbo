@@ -1,7 +1,6 @@
 package api
 
 import (
-	"encoding/json"
 	"log/slog"
 	"net/http"
 	"time"
@@ -63,7 +62,6 @@ func handleStats(db *gorm.DB, scan *scanner.Scanner) http.HandlerFunc {
 		stats.LastScan = scan.LastScanTime()
 		stats.Version = Version
 
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(stats)
+		writeJSON(w, r, http.StatusOK, stats)
 	}
 }

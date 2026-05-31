@@ -1,7 +1,6 @@
 package api
 
 import (
-	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -85,7 +84,6 @@ func handleRequests(cfg *config.Config, db *gorm.DB) http.HandlerFunc {
 			}
 		}
 
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(results)
+		writeJSON(w, r, http.StatusOK, results)
 	}
 }

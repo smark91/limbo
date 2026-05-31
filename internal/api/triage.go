@@ -43,8 +43,7 @@ func handleGetTriage(db *gorm.DB) http.HandlerFunc {
 			return
 		}
 
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(entry)
+		writeJSON(w, r, http.StatusOK, entry)
 	}
 }
 
@@ -142,8 +141,6 @@ func handlePostTriage(db *gorm.DB) http.HandlerFunc {
 			return
 		}
 
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(entry)
+		writeJSON(w, r, http.StatusOK, entry)
 	}
 }

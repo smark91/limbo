@@ -1,7 +1,6 @@
 package api
 
 import (
-	"encoding/json"
 	"log/slog"
 	"net/http"
 
@@ -16,8 +15,7 @@ func handleSync(s *scanner.Scanner) http.HandlerFunc {
 
 		s.TriggerScan(ctx)
 
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		writeJSON(w, r, http.StatusOK, map[string]interface{}{
 			"success":  true,
 			"message":  "Sync triggered",
 			"lastScan": s.LastScanTime(),

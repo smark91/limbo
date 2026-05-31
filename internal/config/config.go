@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -178,6 +179,8 @@ func loadSecret(key string) (string, error) {
 		isDefault = true
 	}
 
+	filePath = filepath.Clean(filePath)
+	// #nosec G304
 	content, err := os.ReadFile(filePath)
 	if err != nil {
 		if isDefault && os.IsNotExist(err) {

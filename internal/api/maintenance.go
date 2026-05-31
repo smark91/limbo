@@ -113,8 +113,7 @@ func handleCleanOlder(db *gorm.DB, seerrClient *seerr.Client) http.HandlerFunc {
 			}
 		}
 
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		writeJSON(w, r, http.StatusOK, map[string]interface{}{
 			"success":      true,
 			"deletedCount": deletedCount,
 		})
@@ -172,8 +171,7 @@ func handleRefreshCache(db *gorm.DB, seerrClient *seerr.Client, cfg *config.Conf
 			}
 		}
 
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		writeJSON(w, r, http.StatusOK, map[string]interface{}{
 			"success":        true,
 			"refreshedCount": refreshedCount,
 		})
@@ -230,8 +228,7 @@ func handleGetCacheInfo(db *gorm.DB, cfg *config.Config) http.HandlerFunc {
 			slog.WarnContext(ctx, "Unsupported DB_DRIVER for cache size lookup", slog.String("driver", cfg.DBDriver))
 		}
 
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(cacheInfoResponse{
+		writeJSON(w, r, http.StatusOK, cacheInfoResponse{
 			ActiveCount: activeCount,
 			TotalCount:  totalCount,
 			Size:        size,
@@ -323,8 +320,7 @@ func handleTestNotification(db *gorm.DB, scannerInstance *scanner.Scanner, seerr
 			return
 		}
 
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		writeJSON(w, r, http.StatusOK, map[string]interface{}{
 			"success": true,
 			"message": fmt.Sprintf("Successfully sent '%s' test notification", payload.Type),
 		})

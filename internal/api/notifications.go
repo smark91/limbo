@@ -26,8 +26,7 @@ func handleGetNotificationsConfig(cfg *config.Config) http.HandlerFunc {
 		res := map[string]string{
 			"publicKey": cfg.VapidPublicKey,
 		}
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(res)
+		writeJSON(w, r, http.StatusOK, res)
 	}
 }
 
@@ -72,8 +71,6 @@ func handleSubscribe(db *gorm.DB) http.HandlerFunc {
 			return
 		}
 
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusCreated)
-		json.NewEncoder(w).Encode(map[string]string{"status": "subscribed"})
+		writeJSON(w, r, http.StatusCreated, map[string]string{"status": "subscribed"})
 	}
 }

@@ -1,7 +1,6 @@
 package api
 
 import (
-	"encoding/json"
 	"log/slog"
 	"net/http"
 
@@ -37,21 +36,18 @@ func handleHealth(db *gorm.DB, seerrClient *seerr.Client) http.HandlerFunc {
 			slog.ErrorContext(ctx, "Health check failed: Seerr API ping failed", slog.Any("error", err))
 		}
 
-		w.Header().Set("Content-Type", "application/json")
-
 		response := map[string]string{
 			"status":   "ok",
 			"database": dbStatus,
 			"seerr":    seerrStatus,
 		}
 
+		status := http.StatusOK
 		if hasError {
 			response["status"] = "error"
-			w.WriteHeader(http.StatusServiceUnavailable)
-		} else {
-			w.WriteHeader(http.StatusOK)
+			status = http.StatusServiceUnavailable
 		}
 
-		json.NewEncoder(w).Encode(response)
+		writeJSON(w, r, status, response)
 	}
 }

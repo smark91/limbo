@@ -1,6 +1,6 @@
 module limbo
 
-go 1.26.3
+go 1.26.0
 
 require (
 	github.com/SherClockHolmes/webpush-go v1.3.0

@@ -3,6 +3,7 @@ package api
 import (
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 
 	"limbo/internal/config"
@@ -66,7 +67,7 @@ func NewRouter(deps Deps, frontendFS http.FileSystem) http.Handler {
 			// If file not found, serve index.html for SPA routing
 			req.URL.Path = "/"
 		} else {
-			f.Close()
+			_ = f.Close()
 		}
 		fileServer.ServeHTTP(w, req)
 	})
@@ -83,14 +84,22 @@ func requestLogger() func(http.Handler) http.Handler {
 			
 			next.ServeHTTP(ww, r)
 			
+			// #nosec G706
 			slog.Debug("HTTP Request",
-				slog.String("method", r.Method),
-				slog.String("path", r.URL.Path),
+				slog.String("method", sanitizeLogInput(r.Method)),
+				slog.String("path", sanitizeLogInput(r.URL.Path)),
 				slog.Int("status", ww.Status()),
-				slog.String("ip", r.RemoteAddr),
+				slog.String("ip", sanitizeLogInput(r.RemoteAddr)),
 				slog.Duration("duration", time.Since(start)),
 				slog.Int("bytes", ww.BytesWritten()),
 			)
 		})
 	}
+}
+
+// sanitizeLogInput removes newlines and carriage returns to prevent log injection.
+func sanitizeLogInput(s string) string {
+	s = strings.ReplaceAll(s, "\n", "")
+	s = strings.ReplaceAll(s, "\r", "")
+	return s
 }
