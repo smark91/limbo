@@ -103,6 +103,13 @@ const API = {
     },
 
     /**
+     * GET /api/maintenance/info
+     */
+    getSystemInfo() {
+        return this._fetch('/api/maintenance/info');
+    },
+
+    /**
      * POST /api/maintenance/test-notification
      */
     testNotification(type) {

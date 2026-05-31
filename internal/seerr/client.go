@@ -290,3 +290,22 @@ func (c *Client) GetRequest(ctx context.Context, requestID int) (*SeerrRequest, 
 	}
 	return &req, nil
 }
+
+// SeerrStatus represents the response from /api/v1/status.
+type SeerrStatus struct {
+	Version string `json:"version"`
+}
+
+// GetVersion fetches the Seerr application version.
+func (c *Client) GetVersion(ctx context.Context) (string, error) {
+	url := fmt.Sprintf("%s/api/v1/status", c.baseURL)
+	resp, err := c.doGet(ctx, url)
+	if err != nil {
+		return "", err
+	}
+	var status SeerrStatus
+	if err := json.Unmarshal(resp, &status); err != nil {
+		return "", err
+	}
+	return status.Version, nil
+}

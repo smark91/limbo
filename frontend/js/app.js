@@ -446,8 +446,9 @@ const App = {
                 dateInput.value = d.toISOString().split('T')[0];
             }
 
-            // Load cache metrics
+            // Load cache metrics & system info
             this.loadCacheInfo();
+            this.loadSystemInfo();
         }
     },
 
@@ -543,6 +544,33 @@ const App = {
             if (sizeEl) sizeEl.textContent = formatBytes(info.size);
         } catch (err) {
             console.error('Failed to load cache info:', err);
+        }
+    },
+
+    /**
+     * Fetch system info and update the maintenance page.
+     */
+    async loadSystemInfo() {
+        try {
+            const info = await API.getSystemInfo();
+            const dbDriverEl = document.getElementById('info-db-driver');
+            const dbVersionEl = document.getElementById('info-db-version');
+            const seerrVersionEl = document.getElementById('info-seerr-version');
+            const goVersionEl = document.getElementById('info-go-version');
+            const osArchEl = document.getElementById('info-os-arch');
+            const uptimeEl = document.getElementById('info-uptime');
+
+            if (dbDriverEl) dbDriverEl.textContent = info.dbDriver;
+            if (dbVersionEl) {
+                dbVersionEl.textContent = info.dbVersion;
+                dbVersionEl.title = info.dbVersion;
+            }
+            if (seerrVersionEl) seerrVersionEl.textContent = info.seerrVersion;
+            if (goVersionEl) goVersionEl.textContent = info.goVersion;
+            if (osArchEl) osArchEl.textContent = info.osArch;
+            if (uptimeEl) uptimeEl.textContent = info.uptime;
+        } catch (err) {
+            console.error('Failed to load system info:', err);
         }
     },
 

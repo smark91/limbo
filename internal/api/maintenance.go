@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"runtime"
 	"strings"
 	"time"
 
@@ -323,6 +324,80 @@ func handleTestNotification(db *gorm.DB, scannerInstance *scanner.Scanner, seerr
 		writeJSON(w, r, http.StatusOK, map[string]interface{}{
 			"success": true,
 			"message": fmt.Sprintf("Successfully sent '%s' test notification", payload.Type),
+		})
+	}
+}
+
+var startTime = time.Now()
+
+type systemInfoResponse struct {
+	DbDriver     string `json:"dbDriver"`
+	DbVersion    string `json:"dbVersion"`
+	SeerrVersion string `json:"seerrVersion"`
+	GoVersion    string `json:"goVersion"`
+	OsArch       string `json:"osArch"`
+	Uptime       string `json:"uptime"`
+}
+
+// handleGetSystemInfo returns system information including database and Seerr versions.
+func handleGetSystemInfo(db *gorm.DB, seerrClient *seerr.Client, cfg *config.Config) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+		
+		// 1. Get database version
+		dbVersion := "Unknown"
+		var query string
+		if cfg.DBDriver == "postgres" {
+			query = "SELECT version()"
+		} else {
+			query = "SELECT sqlite_version()"
+		}
+		if err := db.WithContext(ctx).Raw(query).Scan(&dbVersion).Error; err != nil {
+			slog.WarnContext(ctx, "Failed to fetch database version", slog.Any("error", err))
+			dbVersion = "Error fetching version"
+		}
+
+		// Clean up database version string to be more readable
+		if strings.HasPrefix(dbVersion, "PostgreSQL ") {
+			// e.g. "PostgreSQL 16.2 on x86_64-pc-linux-musl, ..." -> "PostgreSQL 16.2"
+			parts := strings.Split(dbVersion, " on ")
+			if len(parts) > 0 {
+				dbVersion = parts[0]
+			}
+		}
+
+		// 2. Get Seerr version
+		seerrVersion, err := seerrClient.GetVersion(ctx)
+		if err != nil {
+			slog.WarnContext(ctx, "Failed to fetch Seerr version", slog.Any("error", err))
+			seerrVersion = "Unknown (unreachable)"
+		}
+
+		// 3. Calculate Uptime
+		uptimeDuration := time.Since(startTime)
+		days := int(uptimeDuration.Hours()) / 24
+		hours := int(uptimeDuration.Hours()) % 24
+		minutes := int(uptimeDuration.Minutes()) % 60
+		seconds := int(uptimeDuration.Seconds()) % 60
+
+		var uptime string
+		if days > 0 {
+			uptime = fmt.Sprintf("%dd %dh %dm", days, hours, minutes)
+		} else if hours > 0 {
+			uptime = fmt.Sprintf("%dh %dm %ds", hours, minutes, seconds)
+		} else if minutes > 0 {
+			uptime = fmt.Sprintf("%dm %ds", minutes, seconds)
+		} else {
+			uptime = fmt.Sprintf("%ds", seconds)
+		}
+
+		writeJSON(w, r, http.StatusOK, systemInfoResponse{
+			DbDriver:     cfg.DBDriver,
+			DbVersion:    dbVersion,
+			SeerrVersion: seerrVersion,
+			GoVersion:    runtime.Version(),
+			OsArch:       fmt.Sprintf("%s/%s", runtime.GOOS, runtime.GOARCH),
+			Uptime:       uptime,
 		})
 	}
 }
