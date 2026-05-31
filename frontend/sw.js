@@ -1,4 +1,4 @@
-const CACHE_NAME = 'limbo-cache-v62';
+const CACHE_NAME = 'limbo-cache-v64';
 const ASSETS = [
   '/',
   '/index.html',
@@ -47,36 +47,24 @@ self.addEventListener('fetch', event => {
   }
 
   // Bypass interception for API requests and page navigation.
-  // This lets the browser handle auth redirects natively without CORS blocks.
   if (event.request.url.includes('/api/') || event.request.mode === 'navigate') {
+    return;
+  }
+
+  const url = new URL(event.request.url);
+  const path = url.pathname;
+  const isPreCached = ASSETS.includes(path);
+
+  if (!isPreCached) {
     return;
   }
 
   event.respondWith(
     caches.match(event.request).then(cachedResponse => {
       if (cachedResponse) {
-        // Fetch fresh copy in the background to update the cache
-        fetch(event.request).then(networkResponse => {
-          if (networkResponse.status === 200) {
-            caches.open(CACHE_NAME).then(cache => cache.put(event.request, networkResponse));
-          }
-        }).catch(() => { });
         return cachedResponse;
       }
-
-      return fetch(event.request).then(networkResponse => {
-        if (networkResponse.status === 200) {
-          const responseClone = networkResponse.clone();
-          caches.open(CACHE_NAME).then(cache => cache.put(event.request, responseClone));
-        }
-        return networkResponse;
-      }).catch(err => {
-        // Fallback to cache if network fetch fails (e.g. CORS block, offline)
-        return caches.match(event.request).then(cached => {
-          if (cached) return cached;
-          throw err;
-        });
-      });
+      return fetch(event.request);
     })
   );
 });

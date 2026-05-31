@@ -196,7 +196,9 @@ const App = {
             }
 
             if (this.state.stats.version) {
-                document.getElementById('logo-version').textContent = this.state.stats.version;
+                const version = this.state.stats.version;
+                const displayVersion = version.startsWith('v') ? version : 'v' + version;
+                document.getElementById('logo-version').textContent = displayVersion;
             }
 
             Components.renderStats(this.state.stats, this.state.filters.status);
