@@ -82,6 +82,19 @@ func (s *Scanner) LastScanTime() time.Time {
 	return s.lastScan
 }
 
+// preparedUpdate holds the parsed and prepared metadata updates for a request,
+// to be committed as part of a batch database transaction.
+type preparedUpdate struct {
+	seerrReq     seerr.SeerrRequest
+	title        string
+	posterPath   string
+	releaseInfo  ReleaseInfo
+	entry        database.TriageEntry
+	isNew        bool
+	updates      map[string]interface{}
+	shouldNotify bool
+}
+
 func (s *Scanner) scan(ctx context.Context) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -97,19 +110,29 @@ func (s *Scanner) scan(ctx context.Context) {
 
 	slog.InfoContext(ctx, "Fetched approved requests", slog.Int("count", len(requests)))
 
-	// Track seen IDs for reconciliation (only for active requests)
-	var currentIDs []int
-	if err := s.db.WithContext(ctx).Model(&database.TriageEntry{}).Where("status != ?", database.StatusCompleted).Pluck("seerr_request_id", &currentIDs).Error; err != nil {
-		slog.ErrorContext(ctx, "Error fetching current request IDs from database", slog.Any("error", err))
+	// Fetch all existing entries at once to populate our in-memory map
+	var existingEntries []database.TriageEntry
+	if err := s.db.WithContext(ctx).Find(&existingEntries).Error; err != nil {
+		slog.ErrorContext(ctx, "Error fetching existing database entries", slog.Any("error", err))
 		return
 	}
+	existingMap := make(map[int]database.TriageEntry)
+	for _, entry := range existingEntries {
+		existingMap[entry.SeerrRequestID] = entry
+	}
 
+	// Track seen IDs for reconciliation (only for active requests)
 	seenIDs := make(map[int]bool)
-	for _, id := range currentIDs {
-		seenIDs[id] = false
+	for id, entry := range existingMap {
+		if entry.Status != database.StatusCompleted {
+			seenIDs[id] = false
+		}
 	}
 
 	processed := 0
+	var preparedUpdates []*preparedUpdate
+	var dbActions []func(tx *gorm.DB) error
+
 	for _, req := range requests {
 		select {
 		case <-ctx.Done():
@@ -122,13 +145,14 @@ func (s *Scanner) scan(ctx context.Context) {
 
 		// Skip if actively downloading and not already in the database
 		if len(req.Media.DownloadStatus) > 0 {
-			var exists int64
-			if err := s.db.WithContext(ctx).Model(&database.TriageEntry{}).Where("seerr_request_id = ?", req.ID).Count(&exists).Error; err == nil && exists == 0 {
+			_, exists := existingMap[req.ID]
+			if !exists {
 				continue
 			}
 		}
 
-		if err := s.processRequest(ctx, req); err != nil {
+		prep, err := s.prepareRequestUpdate(ctx, req, existingMap)
+		if err != nil {
 			slog.ErrorContext(ctx, "Error processing request",
 				slog.Int("requestId", req.ID),
 				slog.Int("tmdbId", req.Media.TmdbID),
@@ -136,6 +160,7 @@ func (s *Scanner) scan(ctx context.Context) {
 			)
 			continue
 		}
+		preparedUpdates = append(preparedUpdates, prep)
 		processed++
 	}
 
@@ -150,11 +175,11 @@ func (s *Scanner) scan(ctx context.Context) {
 				// If the request returns 404, it was deleted in Seerr
 				if strings.Contains(err.Error(), "returned 404") {
 					slog.InfoContext(ctx, "Reconciling missing request: request not found in Seerr, deleting locally", slog.Int("requestId", id))
-					if err := s.db.WithContext(ctx).Where("seerr_request_id = ?", id).Delete(&database.TriageEntry{}).Error; err != nil {
-						slog.ErrorContext(ctx, "Error deleting stale triage entry", slog.Int("requestId", id), slog.Any("error", err))
-					} else {
-						staleCount++
-					}
+					localID := id
+					dbActions = append(dbActions, func(tx *gorm.DB) error {
+						return tx.Where("seerr_request_id = ?", localID).Delete(&database.TriageEntry{}).Error
+					})
+					staleCount++
 				} else {
 					slog.ErrorContext(ctx, "Error fetching missing request from Seerr during reconciliation, skipping", slog.Int("requestId", id), slog.Any("error", err))
 				}
@@ -169,18 +194,87 @@ func (s *Scanner) scan(ctx context.Context) {
 					"status":       database.StatusCompleted,
 					"fulfilled_at": &fulfilledAt,
 				}
-				if err := s.db.WithContext(ctx).Model(&database.TriageEntry{}).Where("seerr_request_id = ?", id).Updates(updates).Error; err != nil {
-					slog.ErrorContext(ctx, "Error updating completed triage entry during reconciliation", slog.Int("requestId", id), slog.Any("error", err))
-				} else {
-					completedCount++
-				}
+				localID := id
+				dbActions = append(dbActions, func(tx *gorm.DB) error {
+					return tx.Model(&database.TriageEntry{}).Where("seerr_request_id = ?", localID).Updates(updates).Error
+				})
+				completedCount++
 			} else {
 				// If it was declined or changed status to something not approved, delete it
 				slog.InfoContext(ctx, "Reconciling missing request: request no longer approved in Seerr, deleting locally", slog.Int("requestId", id))
-				if err := s.db.WithContext(ctx).Where("seerr_request_id = ?", id).Delete(&database.TriageEntry{}).Error; err != nil {
-					slog.ErrorContext(ctx, "Error deleting stale triage entry", slog.Int("requestId", id), slog.Any("error", err))
-				} else {
-					staleCount++
+				localID := id
+				dbActions = append(dbActions, func(tx *gorm.DB) error {
+					return tx.Where("seerr_request_id = ?", localID).Delete(&database.TriageEntry{}).Error
+				})
+				staleCount++
+			}
+		}
+	}
+
+	// Prepare GORM actions for prepared updates
+	for _, prep := range preparedUpdates {
+		p := prep
+		if p.isNew {
+			dbActions = append(dbActions, func(tx *gorm.DB) error {
+				return tx.Create(&p.entry).Error
+			})
+		} else {
+			dbActions = append(dbActions, func(tx *gorm.DB) error {
+				return tx.Model(&p.entry).Updates(p.updates).Error
+			})
+		}
+	}
+
+	// Prepare GORM action for last scan metadata
+	lastScanTime := time.Now()
+	dbActions = append(dbActions, func(tx *gorm.DB) error {
+		return tx.Save(&database.SystemMetadata{
+			Key:   "last_scan_at",
+			Value: lastScanTime.Format(time.RFC3339),
+		}).Error
+	})
+
+	// Execute transaction block to run all writes in a single commit (1 fsync)
+	if len(dbActions) > 0 {
+		err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+			for _, action := range dbActions {
+				if err := action(tx); err != nil {
+					return err
+				}
+			}
+			return nil
+		})
+		if err != nil {
+			slog.ErrorContext(ctx, "Error executing database update transaction", slog.Any("error", err))
+			return
+		}
+	}
+
+	s.lastScan = lastScanTime
+
+	// Send notifications *after* transaction commits successfully
+	for _, prep := range preparedUpdates {
+		if prep.shouldNotify {
+			posterURL := ""
+			if prep.posterPath != "" {
+				posterURL = fmt.Sprintf("https://image.tmdb.org/t/p/w300%s", prep.posterPath)
+			}
+
+			requestedBy := prep.seerrReq.RequestedBy.DisplayName
+			if requestedBy == "" {
+				requestedBy = "Unknown"
+			}
+
+			requestAge := time.Since(parseTime(prep.seerrReq.CreatedAt))
+
+			if err := s.notifier.NotifyUnfulfilled(prep.title, prep.seerrReq.MediaType, posterURL, prep.entry.ServiceURL, prep.releaseInfo, requestedBy, requestAge); err != nil {
+				slog.ErrorContext(ctx, "Notification error", slog.String("title", prep.title), slog.Any("error", err))
+			} else {
+				now := time.Now()
+				if err := s.db.WithContext(ctx).Model(&database.TriageEntry{}).
+					Where("seerr_request_id = ?", prep.seerrReq.ID).
+					Update("notified_at", &now).Error; err != nil {
+					slog.ErrorContext(ctx, "Error updating notified_at timestamp", slog.Int("requestId", prep.seerrReq.ID), slog.Any("error", err))
 				}
 			}
 		}
@@ -193,23 +287,13 @@ func (s *Scanner) scan(ctx context.Context) {
 		slog.InfoContext(ctx, "Marked missing entries as completed", slog.Int("count", completedCount))
 	}
 
-	s.lastScan = time.Now()
-
-	// Persist to database
-	if err := s.db.WithContext(ctx).Save(&database.SystemMetadata{
-		Key:   "last_scan_at",
-		Value: s.lastScan.Format(time.RFC3339),
-	}).Error; err != nil {
-		slog.ErrorContext(ctx, "Error saving last scan time to database", slog.Any("error", err))
-	}
-
 	slog.InfoContext(ctx, "Scan cycle complete",
 		slog.Int("processed", processed),
 		slog.Duration("duration", time.Since(startTime).Round(time.Millisecond)),
 	)
 }
 
-func (s *Scanner) processRequest(ctx context.Context, req seerr.SeerrRequest) error {
+func (s *Scanner) prepareRequestUpdate(ctx context.Context, req seerr.SeerrRequest, existingMap map[int]database.TriageEntry) (*preparedUpdate, error) {
 	tmdbID := req.Media.TmdbID
 	mediaType := req.MediaType
 
@@ -221,7 +305,7 @@ func (s *Scanner) processRequest(ctx context.Context, req seerr.SeerrRequest) er
 	case "movie":
 		detail, err := s.seerr.GetMovieDetail(ctx, tmdbID)
 		if err != nil {
-			return fmt.Errorf("fetching movie %d: %w", tmdbID, err)
+			return nil, fmt.Errorf("fetching movie %d: %w", tmdbID, err)
 		}
 		title = detail.Title
 		posterPath = detail.PosterPath
@@ -230,7 +314,7 @@ func (s *Scanner) processRequest(ctx context.Context, req seerr.SeerrRequest) er
 	case "tv":
 		detail, err := s.seerr.GetTVDetail(ctx, tmdbID)
 		if err != nil {
-			return fmt.Errorf("fetching TV %d: %w", tmdbID, err)
+			return nil, fmt.Errorf("fetching TV %d: %w", tmdbID, err)
 		}
 		title = detail.Name
 		posterPath = detail.PosterPath
@@ -243,28 +327,32 @@ func (s *Scanner) processRequest(ctx context.Context, req seerr.SeerrRequest) er
 		releaseInfo = EvaluateTVRelease(detail, requestedSeasons)
 
 	default:
-		return fmt.Errorf("unknown media type: %s", mediaType)
+		return nil, fmt.Errorf("unknown media type: %s", mediaType)
 	}
 
-	// Upsert triage entry
-	entry := database.TriageEntry{
-		SeerrRequestID: req.ID,
-		MediaID:        req.Media.ID,
-		TmdbID:         tmdbID,
-		PosterPath:     posterPath,
-		MediaType:      mediaType,
-		Title:          title,
-		ReleaseDate:    releaseInfo.Date,
-		ReleaseSource:  &releaseInfo.Source,
-		SeerrCreatedAt: parseTime(req.CreatedAt),
-		ServiceURL:     req.Media.ServiceURL,
+	existing, exists := existingMap[req.ID]
+
+	prepared := &preparedUpdate{
+		seerrReq:    req,
+		title:       title,
+		posterPath:  posterPath,
+		releaseInfo: releaseInfo,
 	}
 
-	// Check existing entry
-	var existing database.TriageEntry
-	result := s.db.WithContext(ctx).Where("seerr_request_id = ?", req.ID).First(&existing)
+	if !exists {
+		entry := database.TriageEntry{
+			SeerrRequestID: req.ID,
+			MediaID:        req.Media.ID,
+			TmdbID:         tmdbID,
+			PosterPath:     posterPath,
+			MediaType:      mediaType,
+			Title:          title,
+			ReleaseDate:    releaseInfo.Date,
+			ReleaseSource:  &releaseInfo.Source,
+			SeerrCreatedAt: parseTime(req.CreatedAt),
+			ServiceURL:     req.Media.ServiceURL,
+		}
 
-	if result.Error == gorm.ErrRecordNotFound {
 		if req.Media.Status == 4 || req.Media.Status == 5 {
 			entry.Status = database.StatusCompleted
 			fulfilledAt := parseTime(req.UpdatedAt)
@@ -274,10 +362,10 @@ func (s *Scanner) processRequest(ctx context.Context, req seerr.SeerrRequest) er
 		} else {
 			entry.Status = database.StatusPending
 		}
-		if err := s.db.WithContext(ctx).Create(&entry).Error; err != nil {
-			return fmt.Errorf("creating triage entry: %w", err)
-		}
-	} else if result.Error == nil {
+
+		prepared.entry = entry
+		prepared.isNew = true
+	} else {
 		// Update cached fields, preserve user-set status
 		updates := map[string]interface{}{
 			"title":            title,
@@ -314,56 +402,83 @@ func (s *Scanner) processRequest(ctx context.Context, req seerr.SeerrRequest) er
 			}
 		}
 
-		if err := s.db.WithContext(ctx).Model(&existing).Updates(updates).Error; err != nil {
-			return fmt.Errorf("updating triage entry: %w", err)
-		}
-
-		// Sync GORM updates map to in-memory existing struct for subsequent logic
-		if status, ok := updates["status"].(string); ok {
-			existing.Status = status
-		}
-		if val, exists := updates["fulfilled_at"]; exists {
-			if fulfilledAt, ok := val.(*time.Time); ok {
-				existing.FulfilledAt = fulfilledAt
-			} else {
-				existing.FulfilledAt = nil
-			}
-		}
-		if val, exists := updates["notified_at"]; exists {
-			if notifiedAt, ok := val.(*time.Time); ok {
-				existing.NotifiedAt = notifiedAt
-			} else {
-				existing.NotifiedAt = nil
-			}
-		}
-
-		entry = existing
-	} else {
-		return fmt.Errorf("querying triage entry: %w", result.Error)
+		prepared.entry = existing
+		prepared.isNew = false
+		prepared.updates = updates
 	}
 
-	// Discord notification for qualifying requests
-	if s.notifier != nil && s.shouldNotify(entry, req) {
+	// Determine shouldNotify using temporary updated structure in memory
+	tempEntry := prepared.entry
+	if !prepared.isNew {
+		if status, ok := prepared.updates["status"].(string); ok {
+			tempEntry.Status = status
+		}
+		if val, exists := prepared.updates["fulfilled_at"]; exists {
+			if fulfilledAt, ok := val.(*time.Time); ok {
+				tempEntry.FulfilledAt = fulfilledAt
+			} else {
+				tempEntry.FulfilledAt = nil
+			}
+		}
+		if val, exists := prepared.updates["notified_at"]; exists {
+			if notifiedAt, ok := val.(*time.Time); ok {
+				tempEntry.NotifiedAt = notifiedAt
+			} else {
+				tempEntry.NotifiedAt = nil
+			}
+		}
+	}
+
+	prepared.shouldNotify = s.notifier != nil && s.shouldNotify(tempEntry, req)
+
+	return prepared, nil
+}
+
+func (s *Scanner) processRequest(ctx context.Context, req seerr.SeerrRequest) error {
+	existingMap := make(map[int]database.TriageEntry)
+	var existing database.TriageEntry
+	if err := s.db.WithContext(ctx).Where("seerr_request_id = ?", req.ID).First(&existing).Error; err == nil {
+		existingMap[req.ID] = existing
+	}
+
+	prep, err := s.prepareRequestUpdate(ctx, req, existingMap)
+	if err != nil {
+		return err
+	}
+
+	// Apply database write immediately (for single-item execution compatibility in tests)
+	err = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if prep.isNew {
+			return tx.Create(&prep.entry).Error
+		}
+		return tx.Model(&prep.entry).Updates(prep.updates).Error
+	})
+	if err != nil {
+		return err
+	}
+
+	// Trigger notification if needed
+	if prep.shouldNotify {
 		posterURL := ""
-		if posterPath != "" {
-			posterURL = fmt.Sprintf("https://image.tmdb.org/t/p/w300%s", posterPath)
+		if prep.posterPath != "" {
+			posterURL = fmt.Sprintf("https://image.tmdb.org/t/p/w300%s", prep.posterPath)
 		}
 
-		requestedBy := req.RequestedBy.DisplayName
+		requestedBy := prep.seerrReq.RequestedBy.DisplayName
 		if requestedBy == "" {
 			requestedBy = "Unknown"
 		}
 
-		requestAge := time.Since(parseTime(req.CreatedAt))
+		requestAge := time.Since(parseTime(prep.seerrReq.CreatedAt))
 
-		if err := s.notifier.NotifyUnfulfilled(title, mediaType, posterURL, entry.ServiceURL, releaseInfo, requestedBy, requestAge); err != nil {
-			slog.ErrorContext(ctx, "Notification error", slog.String("title", title), slog.Any("error", err))
+		if err := s.notifier.NotifyUnfulfilled(prep.title, prep.seerrReq.MediaType, posterURL, prep.entry.ServiceURL, prep.releaseInfo, requestedBy, requestAge); err != nil {
+			slog.ErrorContext(ctx, "Notification error", slog.String("title", prep.title), slog.Any("error", err))
 		} else {
 			now := time.Now()
 			if err := s.db.WithContext(ctx).Model(&database.TriageEntry{}).
-				Where("seerr_request_id = ?", req.ID).
+				Where("seerr_request_id = ?", prep.seerrReq.ID).
 				Update("notified_at", &now).Error; err != nil {
-				slog.ErrorContext(ctx, "Error updating notified_at timestamp", slog.Int("requestId", req.ID), slog.Any("error", err))
+				slog.ErrorContext(ctx, "Error updating notified_at timestamp", slog.Int("requestId", prep.seerrReq.ID), slog.Any("error", err))
 			}
 		}
 	}
