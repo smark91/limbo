@@ -197,7 +197,8 @@ const App = {
 
             if (this.state.stats.version) {
                 const version = this.state.stats.version;
-                const displayVersion = version.startsWith('v') ? version : 'v' + version;
+                const isSemver = /^[0-9]/.test(version);
+                const displayVersion = isSemver ? 'v' + version : version;
                 document.getElementById('logo-version').textContent = displayVersion;
             }
 

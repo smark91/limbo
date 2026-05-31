@@ -160,16 +160,16 @@ const Components = {
                         </div>
                     </div>` : ''}
                     <div class="p-4 pt-0.5 mt-auto">
-                        <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full">
+                        <div class="flex flex-row items-center gap-2 w-full">
                             ${Components._renderTriageAction(req)}
                             ${req.serviceUrl
-                    ? `<a class="action-btn w-full sm:flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2.5 rounded border border-slate-200 dark:border-slate-700 bg-white/60 dark:bg-slate-800/40 text-slate-600 dark:text-slate-400 text-xs font-semibold cursor-pointer transition-all duration-150 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-slate-100 hover:border-slate-350 dark:hover:border-slate-600" href="${req.serviceUrl}" title="Open in Service">
+                    ? `<a class="action-btn flex-1 flex items-center justify-center gap-1.5 py-2.5 px-2.5 rounded border border-slate-200 dark:border-slate-700 bg-white/60 dark:bg-slate-800/40 text-slate-600 dark:text-slate-400 text-xs font-semibold cursor-pointer transition-all duration-150 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-slate-100 hover:border-slate-350 dark:hover:border-slate-600" href="${req.serviceUrl}" title="Open in Service">
                                      ${req.mediaType === 'tv' ? Components.icons.sonarr : Components.icons.radarr}
                                      <span>${req.mediaType === 'tv' ? 'Sonarr' : 'Radarr'}</span>
                                    </a>`
                     : ''
                 }
-                            <a class="action-btn w-full sm:flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2.5 rounded border border-slate-200 dark:border-slate-700 bg-white/60 dark:bg-slate-800/40 text-slate-600 dark:text-slate-400 text-xs font-semibold cursor-pointer transition-all duration-150 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-slate-100 hover:border-slate-350 dark:hover:border-slate-600" href="${seerrLink}" title="Seerr">
+                            <a class="action-btn flex-1 flex items-center justify-center gap-1.5 py-2.5 px-2.5 rounded border border-slate-200 dark:border-slate-700 bg-white/60 dark:bg-slate-800/40 text-slate-600 dark:text-slate-400 text-xs font-semibold cursor-pointer transition-all duration-150 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-slate-100 hover:border-slate-350 dark:hover:border-slate-600" href="${seerrLink}" title="Seerr">
                                 ${Components.icons.seerr}
                                 <span>Seerr</span>
                             </a>
@@ -187,8 +187,8 @@ const Components = {
         if (req.status === 'COMPLETED') return '';
 
         return `
-            <div class="triage-dropdown group/dropdown relative w-full sm:flex-1 flex" id="triage-dropdown-${req.seerrRequestId}">
-                <button class="action-btn flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2.5 rounded border border-slate-200 dark:border-slate-700 bg-white/60 dark:bg-slate-800/40 text-slate-600 dark:text-slate-400 text-xs font-semibold cursor-pointer transition-all duration-150 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-slate-100 hover:border-slate-350 dark:hover:border-slate-600" onclick="Components.toggleTriageMenu(${req.seerrRequestId}, event)" title="Change Status">
+            <div class="triage-dropdown group/dropdown relative flex-1 flex" id="triage-dropdown-${req.seerrRequestId}">
+                <button class="action-btn flex-1 flex items-center justify-center gap-1.5 py-2.5 px-2.5 rounded border border-slate-200 dark:border-slate-700 bg-white/60 dark:bg-slate-800/40 text-slate-600 dark:text-slate-400 text-xs font-semibold cursor-pointer transition-all duration-150 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-slate-100 hover:border-slate-350 dark:hover:border-slate-600" onclick="Components.toggleTriageMenu(${req.seerrRequestId}, event)" title="Change Status">
                     ${Components.icons.triage}
                     <span>Status</span>
                     ${Components.icons.chevron}
