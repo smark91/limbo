@@ -259,6 +259,29 @@ func TestEvaluateTVRelease(t *testing.T) {
 			t.Errorf("expected Unknown, got source=%q", info.Source)
 		}
 	})
+
+	t.Run("Returning Series with unreleased season request", func(t *testing.T) {
+		show := &seerr.TVDetail{
+			Status:       "Returning Series",
+			FirstAirDate: "2020-01-01",
+			LastAirDate:  "2021-01-01",
+			Seasons: []seerr.TVSeason{
+				{
+					SeasonNumber: 1,
+					AirDate:      "2020-01-01",
+				},
+			},
+		}
+
+		// Requesting Season 2 which does not exist in TMDB yet
+		info := EvaluateTVRelease(show, []int{2})
+		if info.Source != "Unknown" || info.Date != nil {
+			t.Errorf("expected Unknown with nil date for unreleased season, got source=%q, date=%v", info.Source, info.Date)
+		}
+		if !info.IsUnreleased() {
+			t.Error("expected IsUnreleased() to be true for unreleased season 2 request")
+		}
+	})
 }
 
 func TestReleaseInfoIsReleased(t *testing.T) {

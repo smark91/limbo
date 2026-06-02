@@ -164,20 +164,29 @@ func EvaluateTVRelease(show *seerr.TVDetail, requestedSeasons []int) ReleaseInfo
 		return ReleaseInfo{Date: earliestFutureSeasonDate, Source: "Air Date", MediaStatus: show.Status}
 	}
 
-	// 4. Fallback for Ended/Canceled shows or previously released content
-	fallbackDate := show.LastAirDate
-	if fallbackDate == "" {
-		fallbackDate = show.FirstAirDate
-	}
+	// 4. Fallback for Ended/Canceled shows or previously released content.
+	// But ONLY if we didn't request specific seasons that haven't premiered yet!
+	if len(requestedSeasons) == 0 || requestedSeasonPremiered {
+		fallbackDate := show.LastAirDate
+		if fallbackDate == "" {
+			fallbackDate = show.FirstAirDate
+		}
 
-	if fallbackDate != "" {
-		if t := parseSimpleDate(fallbackDate); t != nil {
-			return ReleaseInfo{Date: t, Source: "Air Date", MediaStatus: show.Status}
+		if fallbackDate != "" {
+			if t := parseSimpleDate(fallbackDate); t != nil {
+				return ReleaseInfo{Date: t, Source: "Air Date", MediaStatus: show.Status}
+			}
 		}
 	}
 
-	// 5. No dates found at all — return Unknown with status for downstream decision-making
-	return ReleaseInfo{Date: nil, Source: "Unknown", MediaStatus: show.Status}
+	// 5. No dates found at all — return Unknown with status for downstream decision-making.
+	// If requested seasons have not premiered, override MediaStatus to "Upcoming" so downstream
+	// logic (IsUnreleased) treats it as WAITING_RELEASE.
+	mediaStatus := show.Status
+	if len(requestedSeasons) > 0 && !requestedSeasonPremiered {
+		mediaStatus = "Upcoming"
+	}
+	return ReleaseInfo{Date: nil, Source: "Unknown", MediaStatus: mediaStatus}
 }
 
 // IsReleased returns true if the release date is in the past.

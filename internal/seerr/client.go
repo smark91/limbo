@@ -65,16 +65,23 @@ type SeerrRequest struct {
 }
 
 type Media struct {
-	ID              int     `json:"id"`
-	TmdbID          int     `json:"tmdbId"`
-	TvdbID          *int    `json:"tvdbId"`
-	Status          int     `json:"status"`          // 1=unknown, 2=pending, 3=processing, 4=partially_available, 5=available
-	MediaType       string  `json:"mediaType"`
+	ID              int           `json:"id"`
+	TmdbID          int           `json:"tmdbId"`
+	TvdbID          *int          `json:"tvdbId"`
+	Status          int           `json:"status"` // 1=unknown, 2=pending, 3=processing, 4=partially_available, 5=available
+	MediaType       string        `json:"mediaType"`
 	DownloadStatus  []interface{} `json:"downloadStatus"`
-	RatingKey4k         *string `json:"ratingKey4k"`
-	JellyfinMediaId     *string `json:"jellyfinMediaId"`
-	JellyfinMediaId4k   *string `json:"jellyfinMediaId4k"`
-	ServiceURL          string  `json:"serviceUrl"`
+	RatingKey4k     *string       `json:"ratingKey4k"`
+	JellyfinMediaId   *string     `json:"jellyfinMediaId"`
+	JellyfinMediaId4k *string     `json:"jellyfinMediaId4k"`
+	ServiceURL      string        `json:"serviceUrl"`
+	Seasons         []MediaSeason `json:"seasons"`
+}
+
+type MediaSeason struct {
+	ID           int `json:"id"`
+	SeasonNumber int `json:"seasonNumber"`
+	Status       int `json:"status"` // 1=unknown, 2=pending, 3=processing, 4=partially_available, 5=available
 }
 
 type RequestedBy struct {

@@ -308,6 +308,102 @@ func TestScannerProcessTVRequest(t *testing.T) {
 	}
 }
 
+func TestScannerProcessTVRequestPartiallyAvailable(t *testing.T) {
+	db := setupTestDB(t)
+	now := time.Now()
+
+	// Mock Seerr API Server
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.URL.Path == "/api/v1/tv/100" {
+			tvDetail := map[string]interface{}{
+				"id":           100,
+				"name":         "Futurama",
+				"posterPath":   "/futurama.jpg",
+				"firstAirDate": "1999-03-28",
+				"seasons": []map[string]interface{}{
+					{
+						"seasonNumber": 1,
+						"airDate":      "1999-03-28",
+					},
+					{
+						"seasonNumber": 2,
+						"airDate":      "", // Unreleased season (no air date)
+					},
+				},
+			}
+			json.NewEncoder(w).Encode(tvDetail)
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer server.Close()
+
+	cfg := &config.Config{
+		SeerrURL:    server.URL,
+		SeerrAPIKey: "test-key",
+	}
+	s := New(cfg, db, seerr.NewClient(cfg))
+
+	// Initial request has Season 1 (available) and Season 2 (unreleased)
+	req := seerr.SeerrRequest{
+		ID:        51,
+		Status:    2,
+		MediaType: "tv",
+		Media: seerr.Media{
+			ID:     61,
+			TmdbID: 100,
+			Status: 4, // Partially available
+			Seasons: []seerr.MediaSeason{
+				{SeasonNumber: 1, Status: 5}, // Season 1 is available
+				{SeasonNumber: 2, Status: 2}, // Season 2 is pending/unreleased
+			},
+		},
+		CreatedAt: now.Add(-5 * time.Hour).Format(time.RFC3339),
+		UpdatedAt: now.Format(time.RFC3339),
+	}
+	req.Seasons = []struct {
+		SeasonNumber int `json:"seasonNumber"`
+	}{
+		{SeasonNumber: 1},
+		{SeasonNumber: 2},
+	}
+
+	ctx := context.Background()
+	err := s.processRequest(ctx, req)
+	if err != nil {
+		t.Fatalf("failed to process TV request: %v", err)
+	}
+
+	var entry database.TriageEntry
+	if err := db.First(&entry, "seerr_request_id = ?", 51).Error; err != nil {
+		t.Fatalf("failed to query entry: %v", err)
+	}
+
+	// Should be WAITING_RELEASE since Season 2 is unreleased
+	if entry.Status != database.StatusWaitingRelease {
+		t.Errorf("expected status to be WAITING_RELEASE, got %s", entry.Status)
+	}
+
+	// Now Season 2 is downloaded / available (status 5)
+	req.Media.Status = 5 // Fully available
+	req.Media.Seasons[1].Status = 5
+
+	err = s.processRequest(ctx, req)
+	if err != nil {
+		t.Fatalf("failed to process TV request again: %v", err)
+	}
+
+	if err := db.First(&entry, "seerr_request_id = ?", 51).Error; err != nil {
+		t.Fatalf("failed to query entry: %v", err)
+	}
+
+	// Should now be COMPLETED
+	if entry.Status != database.StatusCompleted {
+		t.Errorf("expected status to be COMPLETED after all seasons available, got %s", entry.Status)
+	}
+}
+
 func TestScannerSkipActiveDownload(t *testing.T) {
 	db := setupTestDB(t)
 	cfg := &config.Config{}

@@ -187,7 +187,27 @@ func (s *Scanner) scan(ctx context.Context) error {
 			}
 
 			// If the media status is completed, transition it to COMPLETED in database
-			if seerrReq.Media.Status == 4 || seerrReq.Media.Status == 5 {
+			isCompleted := false
+			if seerrReq.MediaType == "movie" {
+				isCompleted = (seerrReq.Media.Status == 4 || seerrReq.Media.Status == 5)
+			} else if seerrReq.MediaType == "tv" {
+				completedSeasons := make(map[int]bool)
+				for _, ms := range seerrReq.Media.Seasons {
+					if ms.Status == 5 {
+						completedSeasons[ms.SeasonNumber] = true
+					}
+				}
+				hasUncompleted := false
+				for _, season := range seerrReq.Seasons {
+					if !completedSeasons[season.SeasonNumber] {
+						hasUncompleted = true
+						break
+					}
+				}
+				isCompleted = (seerrReq.Media.Status == 5 || (seerrReq.Media.Status == 4 && !hasUncompleted))
+			}
+
+			if isCompleted {
 				slog.InfoContext(ctx, "Reconciling missing request: media available in Seerr, marking as completed locally", slog.Int("requestId", id))
 				fulfilledAt := parseTime(seerrReq.UpdatedAt)
 				updates := map[string]interface{}{
@@ -320,10 +340,20 @@ func (s *Scanner) prepareRequestUpdate(ctx context.Context, req seerr.SeerrReque
 		title = detail.Name
 		posterPath = detail.PosterPath
 
-		// Extract requested season numbers
+		// Build map of completed seasons
+		completedSeasons := make(map[int]bool)
+		for _, ms := range req.Media.Seasons {
+			if ms.Status == 5 { // 5 = Available
+				completedSeasons[ms.SeasonNumber] = true
+			}
+		}
+
+		// Extract requested season numbers that are not yet completed
 		var requestedSeasons []int
 		for _, season := range req.Seasons {
-			requestedSeasons = append(requestedSeasons, season.SeasonNumber)
+			if !completedSeasons[season.SeasonNumber] {
+				requestedSeasons = append(requestedSeasons, season.SeasonNumber)
+			}
 		}
 		releaseInfo = EvaluateTVRelease(detail, requestedSeasons)
 
@@ -340,6 +370,27 @@ func (s *Scanner) prepareRequestUpdate(ctx context.Context, req seerr.SeerrReque
 		releaseInfo: releaseInfo,
 	}
 
+	isCompleted := false
+	if mediaType == "movie" {
+		isCompleted = (req.Media.Status == 4 || req.Media.Status == 5)
+	} else if mediaType == "tv" {
+		// Build map of completed seasons again for safety
+		completedSeasons := make(map[int]bool)
+		for _, ms := range req.Media.Seasons {
+			if ms.Status == 5 {
+				completedSeasons[ms.SeasonNumber] = true
+			}
+		}
+		hasUncompleted := false
+		for _, season := range req.Seasons {
+			if !completedSeasons[season.SeasonNumber] {
+				hasUncompleted = true
+				break
+			}
+		}
+		isCompleted = (req.Media.Status == 5 || (req.Media.Status == 4 && !hasUncompleted))
+	}
+
 	if !exists {
 		entry := database.TriageEntry{
 			SeerrRequestID: req.ID,
@@ -354,7 +405,7 @@ func (s *Scanner) prepareRequestUpdate(ctx context.Context, req seerr.SeerrReque
 			ServiceURL:     req.Media.ServiceURL,
 		}
 
-		if req.Media.Status == 4 || req.Media.Status == 5 {
+		if isCompleted {
 			entry.Status = database.StatusCompleted
 			fulfilledAt := parseTime(req.UpdatedAt)
 			entry.FulfilledAt = &fulfilledAt
@@ -380,7 +431,7 @@ func (s *Scanner) prepareRequestUpdate(ctx context.Context, req seerr.SeerrReque
 		}
 
 		// Auto-transition to COMPLETED if fulfilled
-		if req.Media.Status == 4 || req.Media.Status == 5 {
+		if isCompleted {
 			updates["status"] = database.StatusCompleted
 			if existing.FulfilledAt == nil {
 				fulfilledAt := parseTime(req.UpdatedAt)
