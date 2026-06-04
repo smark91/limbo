@@ -11,7 +11,7 @@ COPY frontend/ frontend/
 RUN tailwindcss --input frontend/css/tailwind.css --output frontend/css/styles.css --minify
 
 # Build stage
-FROM golang:1.26.3-alpine AS builder
+FROM golang:1.26.4-alpine AS builder
 RUN apk add --no-cache gcc musl-dev
 WORKDIR /build
 COPY go.mod go.sum ./
