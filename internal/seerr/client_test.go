@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"limbo/internal/config"
+	"github.com/smark91/limbo/internal/config"
 )
 
 func TestGetApprovedRequests(t *testing.T) {

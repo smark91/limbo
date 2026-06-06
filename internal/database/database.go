@@ -7,7 +7,7 @@ import (
 	"log/slog"
 	"time"
 
-	"limbo/internal/config"
+	"github.com/smark91/limbo/internal/config"
 
 	"gorm.io/driver/postgres"
 	"gorm.io/driver/sqlite"

@@ -4,8 +4,8 @@ import (
 	"strings"
 	"time"
 
-	"limbo/internal/config"
-	"limbo/internal/seerr"
+	"github.com/smark91/limbo/internal/config"
+	"github.com/smark91/limbo/internal/seerr"
 )
 
 // ReleaseInfo holds the evaluated release date and its source.

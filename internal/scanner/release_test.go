@@ -4,8 +4,8 @@ import (
 	"testing"
 	"time"
 
-	"limbo/internal/config"
-	"limbo/internal/seerr"
+	"github.com/smark91/limbo/internal/config"
+	"github.com/smark91/limbo/internal/seerr"
 )
 
 func TestEvaluateMovieRelease(t *testing.T) {

@@ -97,12 +97,12 @@ jobs:
         run: |
           mkdir -p dist
           # Build static Linux binary using musl-gcc
-          CGO_ENABLED=1 CC=musl-gcc GOOS=linux GOARCH=${{ matrix.platform.arch }} go build -o dist/limbo-linux-${{ matrix.platform.arch }} -ldflags="-s -w -X 'limbo/internal/api.Version=${{ steps.get_version.outputs.version }}' -linkmode external -extldflags '-static'" .
+          CGO_ENABLED=1 CC=musl-gcc GOOS=linux GOARCH=${{ matrix.platform.arch }} go build -o dist/limbo-linux-${{ matrix.platform.arch }} -ldflags="-s -w -X 'github.com/smark91/limbo/internal/api.Version=${{ steps.get_version.outputs.version }}' -linkmode external -extldflags '-static'" .
 
       - name: Build Windows binary (amd64 runner only)
         if: matrix.platform.arch == 'amd64'
         run: |
-          CGO_ENABLED=1 GOOS=windows GOARCH=amd64 CC=x86_64-w64-mingw32-gcc go build -o dist/limbo-windows-amd64.exe -ldflags="-s -w -X 'limbo/internal/api.Version=${{ steps.get_version.outputs.version }}'" .
+          CGO_ENABLED=1 GOOS=windows GOARCH=amd64 CC=x86_64-w64-mingw32-gcc go build -o dist/limbo-windows-amd64.exe -ldflags="-s -w -X 'github.com/smark91/limbo/internal/api.Version=${{ steps.get_version.outputs.version }}'" .
 
       - name: Upload Binaries as Artifacts
         uses: actions/upload-artifact@v7

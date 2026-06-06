@@ -7,9 +7,9 @@ import (
 	"testing"
 	"testing/fstest"
 
-	"limbo/internal/config"
-	"limbo/internal/scanner"
-	"limbo/internal/seerr"
+	"github.com/smark91/limbo/internal/config"
+	"github.com/smark91/limbo/internal/scanner"
+	"github.com/smark91/limbo/internal/seerr"
 )
 
 func TestRouterAndSPA(t *testing.T) {

@@ -8,9 +8,9 @@ import (
 	"sync"
 	"time"
 
-	"limbo/internal/config"
-	"limbo/internal/database"
-	"limbo/internal/seerr"
+	"github.com/smark91/limbo/internal/config"
+	"github.com/smark91/limbo/internal/database"
+	"github.com/smark91/limbo/internal/seerr"
 
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"

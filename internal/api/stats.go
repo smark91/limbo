@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"time"
 
-	"limbo/internal/database"
-	"limbo/internal/scanner"
+	"github.com/smark91/limbo/internal/database"
+	"github.com/smark91/limbo/internal/scanner"
 
 	"gorm.io/gorm"
 )

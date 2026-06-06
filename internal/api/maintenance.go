@@ -9,10 +9,10 @@ import (
 	"strings"
 	"time"
 
-	"limbo/internal/config"
-	"limbo/internal/database"
-	"limbo/internal/scanner"
-	"limbo/internal/seerr"
+	"github.com/smark91/limbo/internal/config"
+	"github.com/smark91/limbo/internal/database"
+	"github.com/smark91/limbo/internal/scanner"
+	"github.com/smark91/limbo/internal/seerr"
 
 	"gorm.io/gorm"
 )

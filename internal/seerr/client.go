@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"time"
 
-	"limbo/internal/config"
+	"github.com/smark91/limbo/internal/config"
 )
 
 // Client communicates with the Seerr API.

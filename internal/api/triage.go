@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"strconv"
 
-	"limbo/internal/database"
+	"github.com/smark91/limbo/internal/database"
 
 	"github.com/go-chi/chi/v5"
 	"gorm.io/gorm"

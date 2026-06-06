@@ -6,9 +6,9 @@ import (
 	"strings"
 	"time"
 
-	"limbo/internal/config"
-	"limbo/internal/scanner"
-	"limbo/internal/seerr"
+	"github.com/smark91/limbo/internal/config"
+	"github.com/smark91/limbo/internal/scanner"
+	"github.com/smark91/limbo/internal/seerr"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"

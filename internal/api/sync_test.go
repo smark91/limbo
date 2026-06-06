@@ -6,9 +6,9 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"limbo/internal/config"
-	"limbo/internal/scanner"
-	"limbo/internal/seerr"
+	"github.com/smark91/limbo/internal/config"
+	"github.com/smark91/limbo/internal/scanner"
+	"github.com/smark91/limbo/internal/seerr"
 )
 
 func TestSyncHandler(t *testing.T) {

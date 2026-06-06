@@ -1,4 +1,4 @@
-module limbo
+module github.com/smark91/limbo
 
 go 1.26.4
 

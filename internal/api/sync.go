@@ -4,7 +4,7 @@ import (
 	"log/slog"
 	"net/http"
 
-	"limbo/internal/scanner"
+	"github.com/smark91/limbo/internal/scanner"
 )
 
 // handleSync triggers an immediate background scan.

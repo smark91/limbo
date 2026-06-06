@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"limbo/internal/config"
-	"limbo/internal/database"
+	"github.com/smark91/limbo/internal/config"
+	"github.com/smark91/limbo/internal/database"
 )
 
 func TestRequestsHandler(t *testing.T) {

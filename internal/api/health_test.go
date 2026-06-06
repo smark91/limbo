@@ -6,8 +6,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"limbo/internal/config"
-	"limbo/internal/seerr"
+	"github.com/smark91/limbo/internal/config"
+	"github.com/smark91/limbo/internal/seerr"
 )
 
 func TestHealthcheckErrors(t *testing.T) {

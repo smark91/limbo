@@ -4,7 +4,7 @@ import (
 	"log/slog"
 	"net/http"
 
-	"limbo/internal/seerr"
+	"github.com/smark91/limbo/internal/seerr"
 
 	"gorm.io/gorm"
 )

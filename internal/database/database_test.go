@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"limbo/internal/config"
+	"github.com/smark91/limbo/internal/config"
 	"gorm.io/gorm/logger"
 )
 
