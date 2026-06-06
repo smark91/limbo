@@ -107,10 +107,14 @@ func EvaluateTVRelease(show *seerr.TVDetail, requestedSeasons []int) ReleaseInfo
 	// Determine if any of the requested seasons have already premiered.
 	// If a requested season has premiered, we should ignore any future NextEpisodeToAir.
 	requestedSeasonPremiered := false
+	if show.Status == "Ended" || show.Status == "Canceled" {
+		requestedSeasonPremiered = true
+	}
 	var earliestFutureSeasonDate *time.Time
 
 	for _, reqSeason := range requestedSeasons {
 		seasonFound := false
+		seasonHasDate := false
 		for _, season := range show.Seasons {
 			if season.SeasonNumber != reqSeason {
 				continue
@@ -120,6 +124,7 @@ func EvaluateTVRelease(show *seerr.TVDetail, requestedSeasons []int) ReleaseInfo
 			// Check if season has a known air date
 			if season.AirDate != "" {
 				if t := parseSimpleDate(season.AirDate); t != nil {
+					seasonHasDate = true
 					if t.After(now) {
 						if earliestFutureSeasonDate == nil || t.Before(*earliestFutureSeasonDate) {
 							earliestFutureSeasonDate = t
@@ -130,6 +135,7 @@ func EvaluateTVRelease(show *seerr.TVDetail, requestedSeasons []int) ReleaseInfo
 				}
 			} else if len(season.Episodes) > 0 && season.Episodes[0].AirDate != "" {
 				if t := parseSimpleDate(season.Episodes[0].AirDate); t != nil {
+					seasonHasDate = true
 					if t.After(now) {
 						if earliestFutureSeasonDate == nil || t.Before(*earliestFutureSeasonDate) {
 							earliestFutureSeasonDate = t
@@ -142,7 +148,7 @@ func EvaluateTVRelease(show *seerr.TVDetail, requestedSeasons []int) ReleaseInfo
 		}
 
 		// Fallback if season is not in show.Seasons or has no date
-		if !seasonFound && show.FirstAirDate != "" {
+		if (!seasonFound || !seasonHasDate) && show.FirstAirDate != "" {
 			if t := parseSimpleDate(show.FirstAirDate); t != nil && !t.After(now) {
 				if reqSeason == 1 {
 					requestedSeasonPremiered = true

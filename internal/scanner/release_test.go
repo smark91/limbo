@@ -282,6 +282,57 @@ func TestEvaluateTVRelease(t *testing.T) {
 			t.Error("expected IsUnreleased() to be true for unreleased season 2 request")
 		}
 	})
+
+	t.Run("Ended series with missing season air date (One Trillion Dollars 2023 case)", func(t *testing.T) {
+		show := &seerr.TVDetail{
+			Status:       "Ended",
+			FirstAirDate: "2023-11-23",
+			LastAirDate:  "2023-12-07",
+			Seasons: []seerr.TVSeason{
+				{
+					SeasonNumber: 1,
+					AirDate:      "", // Empty air date!
+				},
+			},
+		}
+
+		info := EvaluateTVRelease(show, []int{1})
+		if info.Date == nil {
+			t.Fatal("expected non-nil Date for ended show fallback")
+		}
+		expectedDate := makeTime("2023-12-07")
+		if !info.Date.Equal(expectedDate) {
+			t.Errorf("expected date %v, got %v", expectedDate, info.Date)
+		}
+		if info.IsUnreleased() {
+			t.Error("expected IsUnreleased() to be false for ended show")
+		}
+	})
+
+	t.Run("Returning Series with missing Season 1 air date fallback to FirstAirDate", func(t *testing.T) {
+		show := &seerr.TVDetail{
+			Status:       "Returning Series",
+			FirstAirDate: "2023-11-23",
+			Seasons: []seerr.TVSeason{
+				{
+					SeasonNumber: 1,
+					AirDate:      "", // Empty air date!
+				},
+			},
+		}
+
+		info := EvaluateTVRelease(show, []int{1})
+		if info.Date == nil {
+			t.Fatal("expected non-nil Date fallback to FirstAirDate")
+		}
+		expectedDate := makeTime("2023-11-23")
+		if !info.Date.Equal(expectedDate) {
+			t.Errorf("expected date %v, got %v", expectedDate, info.Date)
+		}
+		if info.IsUnreleased() {
+			t.Error("expected IsUnreleased() to be false since Season 1 has premiered based on FirstAirDate")
+		}
+	})
 }
 
 func TestReleaseInfoIsReleased(t *testing.T) {
