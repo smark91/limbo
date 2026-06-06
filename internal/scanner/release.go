@@ -158,8 +158,19 @@ func EvaluateTVRelease(show *seerr.TVDetail, requestedSeasons []int) ReleaseInfo
 	}
 
 	// 2. Check for the next specific episode to air.
-	// But ONLY if we haven't already confirmed that a requested season has premiered!
-	if !requestedSeasonPremiered && show.NextEpisodeToAir != nil && show.NextEpisodeToAir.AirDate != "" {
+	// We check it if the requested season has not premiered yet, OR if the next episode to air
+	// is part of a requested season (meaning that requested season is actively airing).
+	isRequestedSeasonNext := false
+	if show.NextEpisodeToAir != nil {
+		for _, rs := range requestedSeasons {
+			if rs == show.NextEpisodeToAir.SeasonNumber {
+				isRequestedSeasonNext = true
+				break
+			}
+		}
+	}
+
+	if (!requestedSeasonPremiered || isRequestedSeasonNext) && show.NextEpisodeToAir != nil && show.NextEpisodeToAir.AirDate != "" {
 		if t := parseReleaseDate(show.NextEpisodeToAir.AirDate); t != nil && t.After(now) {
 			return ReleaseInfo{Date: t, Source: "Air Date", MediaStatus: show.Status}
 		}
@@ -174,12 +185,21 @@ func EvaluateTVRelease(show *seerr.TVDetail, requestedSeasons []int) ReleaseInfo
 	// But ONLY if we didn't request specific seasons that haven't premiered yet!
 	if len(requestedSeasons) == 0 || requestedSeasonPremiered {
 		fallbackDate := show.LastAirDate
-		if fallbackDate == "" {
-			fallbackDate = show.FirstAirDate
-		}
-
 		if fallbackDate != "" {
 			if t := parseSimpleDate(fallbackDate); t != nil {
+				// If LastAirDate is in the future, but the requested season has already premiered,
+				// use FirstAirDate instead (which is in the past) to ensure the show is marked PENDING.
+				if t.After(now) && requestedSeasonPremiered && show.FirstAirDate != "" {
+					if firstT := parseSimpleDate(show.FirstAirDate); firstT != nil {
+						return ReleaseInfo{Date: firstT, Source: "Air Date", MediaStatus: show.Status}
+					}
+				}
+				return ReleaseInfo{Date: t, Source: "Air Date", MediaStatus: show.Status}
+			}
+		}
+
+		if show.FirstAirDate != "" {
+			if t := parseSimpleDate(show.FirstAirDate); t != nil {
 				return ReleaseInfo{Date: t, Source: "Air Date", MediaStatus: show.Status}
 			}
 		}

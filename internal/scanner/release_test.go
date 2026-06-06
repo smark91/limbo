@@ -333,6 +333,65 @@ func TestEvaluateTVRelease(t *testing.T) {
 			t.Error("expected IsUnreleased() to be false since Season 1 has premiered based on FirstAirDate")
 		}
 	})
+
+	t.Run("Currently airing series with future LastAirDate but premiered Season 1", func(t *testing.T) {
+		pastDateStr := time.Now().AddDate(0, -2, 0).Format("2006-01-02")
+		futureDateStr := time.Now().AddDate(0, 1, 0).Format("2006-01-02")
+
+		show := &seerr.TVDetail{
+			Status:       "Returning Series",
+			FirstAirDate: pastDateStr,
+			LastAirDate:  futureDateStr,
+			Seasons: []seerr.TVSeason{
+				{
+					SeasonNumber: 1,
+					AirDate:      pastDateStr,
+				},
+			},
+		}
+
+		info := EvaluateTVRelease(show, []int{1})
+		if info.Date == nil {
+			t.Fatal("expected non-nil Date fallback to FirstAirDate")
+		}
+		expectedDate := makeTime(pastDateStr)
+		if !info.Date.Equal(expectedDate) {
+			t.Errorf("expected date %v, got %v", expectedDate, info.Date)
+		}
+		if info.IsUnreleased() {
+			t.Error("expected IsUnreleased() to be false since Season 1 has premiered based on FirstAirDate")
+		}
+	})
+
+	t.Run("Currently airing series with future NextEpisodeToAir in requested season", func(t *testing.T) {
+		pastDateStr := time.Now().AddDate(0, -2, 0).Format("2006-01-02")
+		futureDateStr := time.Now().AddDate(0, 0, 1).Format("2006-01-02") // Tomorrow
+
+		show := &seerr.TVDetail{
+			Status:       "Returning Series",
+			FirstAirDate: pastDateStr,
+			NextEpisodeToAir: &seerr.TVEpisode{
+				SeasonNumber:  1,
+				EpisodeNumber: 10,
+				AirDate:       futureDateStr,
+			},
+			Seasons: []seerr.TVSeason{
+				{
+					SeasonNumber: 1,
+					AirDate:      pastDateStr,
+				},
+			},
+		}
+
+		info := EvaluateTVRelease(show, []int{1})
+		if info.Date == nil {
+			t.Fatal("expected non-nil Date for future next episode to air")
+		}
+		expectedDate := makeTime(futureDateStr)
+		if !info.Date.Equal(expectedDate) {
+			t.Errorf("expected date %v, got %v", expectedDate, info.Date)
+		}
+	})
 }
 
 func TestReleaseInfoIsReleased(t *testing.T) {

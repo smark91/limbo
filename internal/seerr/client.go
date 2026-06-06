@@ -134,6 +134,7 @@ type TVSeason struct {
 
 type TVEpisode struct {
 	EpisodeNumber int    `json:"episodeNumber"`
+	SeasonNumber  int    `json:"seasonNumber"`
 	AirDate       string `json:"airDate"`
 }
 
