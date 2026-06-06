@@ -1,7 +1,7 @@
 package scanner
 
 import (
-	"crypto/elliptic"
+	"crypto/ecdh"
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
@@ -47,11 +47,11 @@ func TestNotifier(t *testing.T) {
 	}
 
 	// Generate valid elliptic curve key pair for subscription p256dh
-	_, x, y, err := elliptic.GenerateKey(elliptic.P256(), rand.Reader)
+	priv, err := ecdh.P256().GenerateKey(rand.Reader)
 	if err != nil {
 		t.Fatalf("failed to generate EC key: %v", err)
 	}
-	pubKeyBytes := elliptic.Marshal(elliptic.P256(), x, y)
+	pubKeyBytes := priv.PublicKey().Bytes()
 	subP256dh := base64.StdEncoding.EncodeToString(pubKeyBytes)
 
 	// Generate random 16-byte auth secret for subscription auth
