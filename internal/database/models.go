@@ -32,12 +32,13 @@ type TriageEntry struct {
 	Status         string     `gorm:"default:PENDING" json:"status"`
 	Reason         *string    `json:"reason,omitempty"`        // Why unavailable
 	ReleaseDate    *time.Time `json:"releaseDate,omitempty"`
-	ReleaseSource  *string    `json:"releaseSource,omitempty"` // "Digital", "Physical", "Theatrical", "Unknown"
-	ServiceURL     string     `json:"serviceUrl,omitempty"`
-	NotifiedAt     *time.Time `json:"notifiedAt,omitempty"`
-	FulfilledAt    *time.Time `json:"fulfilledAt,omitempty"`
-	SeerrCreatedAt time.Time  `gorm:"column:seerr_created_at" json:"createdAt"`
-	UpdatedAt      time.Time  `json:"updatedAt"`
+	ReleaseSource    *string    `json:"releaseSource,omitempty"` // "Digital", "Physical", "Theatrical", "Unknown"
+	RequestedSeasons string     `json:"requestedSeasons,omitempty"`
+	ServiceURL       string     `json:"serviceUrl,omitempty"`
+	NotifiedAt       *time.Time `json:"notifiedAt,omitempty"`
+	FulfilledAt      *time.Time `json:"fulfilledAt,omitempty"`
+	SeerrCreatedAt   time.Time  `gorm:"column:seerr_created_at" json:"createdAt"`
+	UpdatedAt        time.Time  `json:"updatedAt"`
 }
 // SystemMetadata stores application-wide metadata (e.g., last scan time).
 type SystemMetadata struct {

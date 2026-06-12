@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -109,6 +110,23 @@ func (s *Scanner) scan(ctx context.Context) error {
 	}
 
 	slog.InfoContext(ctx, "Fetched approved requests", slog.Int("count", len(requests)))
+
+	// Backfill requested seasons for older TV entries that don't have it set (including completed ones)
+	var emptyTVEntries []database.TriageEntry
+	if err := s.db.WithContext(ctx).Where("media_type = ? AND (requested_seasons = ? OR requested_seasons IS NULL)", "tv", "").Find(&emptyTVEntries).Error; err == nil && len(emptyTVEntries) > 0 {
+		slog.InfoContext(ctx, "Backfilling requested seasons for older TV entries", slog.Int("count", len(emptyTVEntries)))
+		for _, entry := range emptyTVEntries {
+			seerrReq, err := s.seerr.GetRequest(ctx, entry.SeerrRequestID)
+			if err != nil {
+				slog.ErrorContext(ctx, "Failed to fetch request details for backfill", slog.Int("requestId", entry.SeerrRequestID), slog.Any("error", err))
+				continue
+			}
+			seasonsStr := formatSeasons(seerrReq.Seasons)
+			if err := s.db.WithContext(ctx).Model(&entry).Update("requested_seasons", seasonsStr).Error; err != nil {
+				slog.ErrorContext(ctx, "Failed to update requested seasons during backfill", slog.Int("requestId", entry.SeerrRequestID), slog.Any("error", err))
+			}
+		}
+	}
 
 	// Fetch all existing entries at once to populate our in-memory map
 	var existingEntries []database.TriageEntry
@@ -404,6 +422,9 @@ func (s *Scanner) prepareRequestUpdate(ctx context.Context, req seerr.SeerrReque
 			SeerrCreatedAt: parseTime(req.CreatedAt),
 			ServiceURL:     req.Media.ServiceURL,
 		}
+		if mediaType == "tv" {
+			entry.RequestedSeasons = formatSeasons(req.Seasons)
+		}
 
 		if isCompleted {
 			entry.Status = database.StatusCompleted
@@ -428,6 +449,11 @@ func (s *Scanner) prepareRequestUpdate(ctx context.Context, req seerr.SeerrReque
 			"release_source":   releaseInfo.Source,
 			"service_url":      req.Media.ServiceURL,
 			"seerr_created_at": parseTime(req.CreatedAt),
+		}
+		if mediaType == "tv" {
+			updates["requested_seasons"] = formatSeasons(req.Seasons)
+		} else {
+			updates["requested_seasons"] = ""
 		}
 
 		// Auto-transition to COMPLETED if fulfilled
@@ -603,4 +629,39 @@ var _ = clause.OnConflict{}
 // Notifier returns the scanner's notifier.
 func (s *Scanner) Notifier() *Notifier {
 	return s.notifier
+}
+
+func formatSeasons(seasons []struct {
+	SeasonNumber int `json:"seasonNumber"`
+}) string {
+	if len(seasons) == 0 {
+		return ""
+	}
+
+	// Copy and sort
+	nums := make([]int, len(seasons))
+	for i, s := range seasons {
+		nums[i] = s.SeasonNumber
+	}
+	sort.Ints(nums)
+
+	var parts []string
+	n := len(nums)
+	for i := 0; i < n; {
+		start := nums[i]
+		end := start
+		j := i + 1
+		for j < n && nums[j] == end+1 {
+			end = nums[j]
+			j++
+		}
+		runLen := j - i
+		if runLen >= 2 {
+			parts = append(parts, fmt.Sprintf("S%d-%d", start, end))
+		} else {
+			parts = append(parts, fmt.Sprintf("S%d", start))
+		}
+		i = j
+	}
+	return strings.Join(parts, ", ")
 }

@@ -306,6 +306,10 @@ func TestScannerProcessTVRequest(t *testing.T) {
 	if entry.Title != "Futurama" || entry.MediaType != "tv" || entry.PosterPath != "/futurama.jpg" {
 		t.Errorf("incorrect TV triage entry saved: %+v", entry)
 	}
+
+	if entry.RequestedSeasons != "S1" {
+		t.Errorf("expected RequestedSeasons to be 'S1', got %q", entry.RequestedSeasons)
+	}
 }
 
 func TestScannerProcessTVRequestPartiallyAvailable(t *testing.T) {
@@ -385,6 +389,10 @@ func TestScannerProcessTVRequestPartiallyAvailable(t *testing.T) {
 		t.Errorf("expected status to be WAITING_RELEASE, got %s", entry.Status)
 	}
 
+	if entry.RequestedSeasons != "S1-2" {
+		t.Errorf("expected RequestedSeasons to be 'S1-2', got %q", entry.RequestedSeasons)
+	}
+
 	// Now Season 2 is downloaded / available (status 5)
 	req.Media.Status = 5 // Fully available
 	req.Media.Seasons[1].Status = 5
@@ -401,6 +409,10 @@ func TestScannerProcessTVRequestPartiallyAvailable(t *testing.T) {
 	// Should now be COMPLETED
 	if entry.Status != database.StatusCompleted {
 		t.Errorf("expected status to be COMPLETED after all seasons available, got %s", entry.Status)
+	}
+
+	if entry.RequestedSeasons != "S1-2" {
+		t.Errorf("expected RequestedSeasons to remain 'S1-2', got %q", entry.RequestedSeasons)
 	}
 }
 

@@ -146,9 +146,16 @@ const Components = {
                                     <span class="flex items-center" title="Fulfillment Date: ${formatDate(req.fulfilledAt)}">${Components.icons.check}</span> ${formatDate(req.fulfilledAt)}
                                 </span>` : ''}
                             </div>
-                            <div class="status-badge ${req.status} inline-flex items-center gap-1.5 py-1 px-2.5 rounded-full text-[0.7rem] font-bold uppercase tracking-wider w-fit ${badgeColors[req.status] || ''}">
-                                <span class="w-1.5 h-1.5 rounded-full animate-pulse ${Components.statusDotColors[req.status] || ''}"></span>
-                                ${statusLabel(req.status)}
+                            <div class="flex flex-wrap gap-2 items-center justify-between">
+                                <div class="status-badge ${req.status} inline-flex items-center gap-1.5 py-1 px-2.5 rounded-full text-[0.7rem] font-bold uppercase tracking-wider w-fit ${badgeColors[req.status] || ''}">
+                                    <span class="w-1.5 h-1.5 rounded-full animate-pulse ${Components.statusDotColors[req.status] || ''}"></span>
+                                    ${statusLabel(req.status)}
+                                </div>
+                                ${req.requestedSeasons ? `
+                                <div class="inline-flex items-center gap-1 py-1 px-2.5 rounded-full text-[0.7rem] font-bold uppercase tracking-wider w-fit bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-450 border border-slate-200 dark:border-slate-700">
+                                    <span>${req.requestedSeasons}</span>
+                                </div>
+                                ` : ''}
                             </div>
                         </div>
                     </div>
