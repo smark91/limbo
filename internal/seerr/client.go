@@ -52,11 +52,12 @@ type PageInfo struct {
 
 // SeerrRequest represents a single request from Seerr.
 type SeerrRequest struct {
-	ID        int    `json:"id"`
-	Status    int    `json:"status"`    // 1=pending, 2=approved, 3=declined
-	MediaType string `json:"type"`      // "movie" or "tv"
-	Media     Media  `json:"media"`
-	Seasons   []struct {
+	ID          int    `json:"id"`
+	Status      int    `json:"status"`    // 1=pending, 2=approved, 3=declined
+	Is4K        bool   `json:"is4k"`
+	MediaType   string `json:"type"`      // "movie" or "tv"
+	Media       Media  `json:"media"`
+	Seasons     []struct {
 		SeasonNumber int `json:"seasonNumber"`
 	} `json:"seasons"`
 	RequestedBy RequestedBy `json:"requestedBy"`
@@ -69,6 +70,7 @@ type Media struct {
 	TmdbID          int           `json:"tmdbId"`
 	TvdbID          *int          `json:"tvdbId"`
 	Status          int           `json:"status"` // 1=unknown, 2=pending, 3=processing, 4=partially_available, 5=available
+	Status4k        int           `json:"status4k"`
 	MediaType       string        `json:"mediaType"`
 	DownloadStatus  []interface{} `json:"downloadStatus"`
 	RatingKey4k     *string       `json:"ratingKey4k"`
@@ -82,6 +84,7 @@ type MediaSeason struct {
 	ID           int `json:"id"`
 	SeasonNumber int `json:"seasonNumber"`
 	Status       int `json:"status"` // 1=unknown, 2=pending, 3=processing, 4=partially_available, 5=available
+	Status4k     int `json:"status4k"`
 }
 
 type RequestedBy struct {

@@ -127,7 +127,12 @@ const Components = {
                         <div class="flex-1 flex flex-col gap-1.5 min-w-0">
                             <div class="flex items-start justify-between gap-3">
                                 <span class="text-[1.05rem] font-semibold text-slate-900 dark:text-slate-100 leading-snug truncate" title="${req.title}">${req.title || 'Unknown Title'}</span>
-                                <span class="text-sm shrink-0" title="${req.mediaType === 'tv' ? 'TV Show' : 'Movie'}">${req.mediaType === 'tv' ? Components.icons.tv : Components.icons.movie}</span>
+                                <div class="flex items-center gap-1.5 shrink-0">
+                                    ${req.is4k ? `
+                                    <span class="text-[0.75rem] font-black text-amber-500 dark:text-amber-400 leading-none select-none cursor-default shrink-0" title="4K Request">4K</span>
+                                    ` : ''}
+                                    <span class="text-sm" title="${req.mediaType === 'tv' ? 'TV Show' : 'Movie'}">${req.mediaType === 'tv' ? Components.icons.tv : Components.icons.movie}</span>
+                                </div>
                             </div>
                             <div class="text-[0.8rem] text-slate-500 dark:text-slate-400 flex flex-col gap-1">
                                 <span class="flex items-center gap-1.5" title="Request Date: ${formatDate(req.createdAt)}">
@@ -151,11 +156,13 @@ const Components = {
                                     <span class="w-1.5 h-1.5 rounded-full animate-pulse ${Components.statusDotColors[req.status] || ''}"></span>
                                     ${statusLabel(req.status)}
                                 </div>
-                                ${req.requestedSeasons ? `
-                                <div class="inline-flex items-center gap-1 py-1 px-2.5 rounded-full text-[0.7rem] font-bold uppercase tracking-wider w-fit bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-450 border border-slate-200 dark:border-slate-700">
-                                    <span>${req.requestedSeasons}</span>
+                                <div class="flex items-center gap-1.5">
+                                    ${req.requestedSeasons ? `
+                                    <div class="inline-flex items-center gap-1 py-1 px-2.5 rounded-full text-[0.7rem] font-bold uppercase tracking-wider w-fit bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+                                        <span>${req.requestedSeasons}</span>
+                                    </div>
+                                    ` : ''}
                                 </div>
-                                ` : ''}
                             </div>
                         </div>
                     </div>

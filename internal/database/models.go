@@ -23,9 +23,10 @@ func AllStatuses() []string {
 // TriageEntry tracks the triage state of an unfulfilled Seerr request.
 type TriageEntry struct {
 	ID             uint       `gorm:"primaryKey" json:"id"`
-	SeerrRequestID int        `gorm:"uniqueIndex" json:"seerrRequestId"`
-	MediaID        int        `json:"mediaId"`
-	TmdbID         int        `json:"tmdbId"`
+	SeerrRequestID   int        `gorm:"uniqueIndex" json:"seerrRequestId"`
+	Is4K             bool       `json:"is4k"`
+	MediaID          int        `json:"mediaId"`
+	TmdbID           int        `json:"tmdbId"`
 	PosterPath     string     `json:"posterPath,omitempty"`
 	MediaType      string     `json:"mediaType"`      // "movie" or "tv"
 	Title          string     `json:"title"`           // Cached title from Seerr

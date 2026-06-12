@@ -279,6 +279,7 @@ func TestScannerProcessTVRequest(t *testing.T) {
 	req := seerr.SeerrRequest{
 		ID:        50,
 		Status:    2,
+		Is4K:      true,
 		MediaType: "tv",
 		Media: seerr.Media{
 			ID:     60,
@@ -309,6 +310,10 @@ func TestScannerProcessTVRequest(t *testing.T) {
 
 	if entry.RequestedSeasons != "S1" {
 		t.Errorf("expected RequestedSeasons to be 'S1', got %q", entry.RequestedSeasons)
+	}
+
+	if !entry.Is4K {
+		t.Errorf("expected entry.Is4K to be true, got false")
 	}
 }
 

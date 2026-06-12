@@ -122,8 +122,12 @@ func (s *Scanner) scan(ctx context.Context) error {
 				continue
 			}
 			seasonsStr := formatSeasons(seerrReq.Seasons)
-			if err := s.db.WithContext(ctx).Model(&entry).Update("requested_seasons", seasonsStr).Error; err != nil {
-				slog.ErrorContext(ctx, "Failed to update requested seasons during backfill", slog.Int("requestId", entry.SeerrRequestID), slog.Any("error", err))
+			updates := map[string]interface{}{
+				"requested_seasons": seasonsStr,
+				"is4_k":             seerrReq.Is4K,
+			}
+			if err := s.db.WithContext(ctx).Model(&entry).Updates(updates).Error; err != nil {
+				slog.ErrorContext(ctx, "Failed to update requested seasons and is4k during backfill", slog.Int("requestId", entry.SeerrRequestID), slog.Any("error", err))
 			}
 		}
 	}
@@ -207,11 +211,19 @@ func (s *Scanner) scan(ctx context.Context) error {
 			// If the media status is completed, transition it to COMPLETED in database
 			isCompleted := false
 			if seerrReq.MediaType == "movie" {
-				isCompleted = (seerrReq.Media.Status == 4 || seerrReq.Media.Status == 5)
+				mediaStatusVal := seerrReq.Media.Status
+				if seerrReq.Is4K {
+					mediaStatusVal = seerrReq.Media.Status4k
+				}
+				isCompleted = (mediaStatusVal == 4 || mediaStatusVal == 5)
 			} else if seerrReq.MediaType == "tv" {
 				completedSeasons := make(map[int]bool)
 				for _, ms := range seerrReq.Media.Seasons {
-					if ms.Status == 5 {
+					statusVal := ms.Status
+					if seerrReq.Is4K {
+						statusVal = ms.Status4k
+					}
+					if statusVal == 5 {
 						completedSeasons[ms.SeasonNumber] = true
 					}
 				}
@@ -222,7 +234,11 @@ func (s *Scanner) scan(ctx context.Context) error {
 						break
 					}
 				}
-				isCompleted = (seerrReq.Media.Status == 5 || (seerrReq.Media.Status == 4 && !hasUncompleted))
+				mediaStatusVal := seerrReq.Media.Status
+				if seerrReq.Is4K {
+					mediaStatusVal = seerrReq.Media.Status4k
+				}
+				isCompleted = (mediaStatusVal == 5 || (mediaStatusVal == 4 && !hasUncompleted))
 			}
 
 			if isCompleted {
@@ -361,7 +377,11 @@ func (s *Scanner) prepareRequestUpdate(ctx context.Context, req seerr.SeerrReque
 		// Build map of completed seasons
 		completedSeasons := make(map[int]bool)
 		for _, ms := range req.Media.Seasons {
-			if ms.Status == 5 { // 5 = Available
+			statusVal := ms.Status
+			if req.Is4K {
+				statusVal = ms.Status4k
+			}
+			if statusVal == 5 { // 5 = Available
 				completedSeasons[ms.SeasonNumber] = true
 			}
 		}
@@ -390,12 +410,20 @@ func (s *Scanner) prepareRequestUpdate(ctx context.Context, req seerr.SeerrReque
 
 	isCompleted := false
 	if mediaType == "movie" {
-		isCompleted = (req.Media.Status == 4 || req.Media.Status == 5)
+		mediaStatusVal := req.Media.Status
+		if req.Is4K {
+			mediaStatusVal = req.Media.Status4k
+		}
+		isCompleted = (mediaStatusVal == 4 || mediaStatusVal == 5)
 	} else if mediaType == "tv" {
 		// Build map of completed seasons again for safety
 		completedSeasons := make(map[int]bool)
 		for _, ms := range req.Media.Seasons {
-			if ms.Status == 5 {
+			statusVal := ms.Status
+			if req.Is4K {
+				statusVal = ms.Status4k
+			}
+			if statusVal == 5 {
 				completedSeasons[ms.SeasonNumber] = true
 			}
 		}
@@ -406,7 +434,11 @@ func (s *Scanner) prepareRequestUpdate(ctx context.Context, req seerr.SeerrReque
 				break
 			}
 		}
-		isCompleted = (req.Media.Status == 5 || (req.Media.Status == 4 && !hasUncompleted))
+		mediaStatusVal := req.Media.Status
+		if req.Is4K {
+			mediaStatusVal = req.Media.Status4k
+		}
+		isCompleted = (mediaStatusVal == 5 || (mediaStatusVal == 4 && !hasUncompleted))
 	}
 
 	if !exists {
@@ -414,6 +446,7 @@ func (s *Scanner) prepareRequestUpdate(ctx context.Context, req seerr.SeerrReque
 			SeerrRequestID: req.ID,
 			MediaID:        req.Media.ID,
 			TmdbID:         tmdbID,
+			Is4K:           req.Is4K,
 			PosterPath:     posterPath,
 			MediaType:      mediaType,
 			Title:          title,
@@ -449,6 +482,7 @@ func (s *Scanner) prepareRequestUpdate(ctx context.Context, req seerr.SeerrReque
 			"release_source":   releaseInfo.Source,
 			"service_url":      req.Media.ServiceURL,
 			"seerr_created_at": parseTime(req.CreatedAt),
+			"is4_k":            req.Is4K,
 		}
 		if mediaType == "tv" {
 			updates["requested_seasons"] = formatSeasons(req.Seasons)
