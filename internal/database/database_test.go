@@ -86,6 +86,11 @@ func TestDatabaseInit(t *testing.T) {
 			t.Fatalf("failed to create: %v", err)
 		}
 
+		// Delete migration metadata key to force migration run on next Init
+		if err := db.Where("key = ?", "migration_not_available_to_unavailable").Delete(&SystemMetadata{}).Error; err != nil {
+			t.Fatalf("failed to delete migration metadata: %v", err)
+		}
+
 		// Close previous connection to release file lock
 		sqlDB, err := db.DB()
 		if err != nil {

@@ -6,7 +6,7 @@ const Components = {
 
     statusDotColors: {
         'PENDING': 'bg-amber-500',
-        'WAITING_RELEASE': 'bg-sky-500',
+        'UNRELEASED': 'bg-sky-500',
         'UNAVAILABLE': 'bg-rose-500',
         'COMPLETED': 'bg-emerald-500'
     },
@@ -51,7 +51,7 @@ const Components = {
 
         const items = [
             { key: 'PENDING', count: stats.pending },
-            { key: 'WAITING_RELEASE', count: stats.waitingRelease },
+            { key: 'UNRELEASED', count: stats.unreleased },
             { key: 'UNAVAILABLE', count: stats.unavailable },
             { key: 'COMPLETED', count: stats.completed }
         ];
@@ -103,7 +103,7 @@ const Components = {
 
         const badgeColors = {
             'PENDING': 'bg-amber-500/10 text-amber-500 border border-amber-500/20',
-            'WAITING_RELEASE': 'bg-sky-500/10 text-sky-500 border border-sky-500/20',
+            'UNRELEASED': 'bg-sky-500/10 text-sky-500 border border-sky-500/20',
             'UNAVAILABLE': 'bg-rose-500/10 text-rose-500 border border-rose-500/20',
             'COMPLETED': 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20'
         };
@@ -213,10 +213,10 @@ const Components = {
                         <span class="w-2 h-2 rounded-full bg-amber-500"></span>
                         <span>Pending</span>
                     </button>` : ''}
-                    ${req.status !== 'WAITING_RELEASE' ? `
-                    <button class="triage-option flex items-center gap-2 w-full py-2 px-3 border-none rounded bg-transparent text-slate-700 dark:text-slate-200 text-xs font-medium cursor-pointer transition-colors duration-150 hover:bg-slate-100 dark:hover:bg-slate-700" data-status="WAITING_RELEASE" onclick="App.setTriage(${req.seerrRequestId}, 'WAITING_RELEASE')">
+                    ${req.status !== 'UNRELEASED' ? `
+                    <button class="triage-option flex items-center gap-2 w-full py-2 px-3 border-none rounded bg-transparent text-slate-700 dark:text-slate-200 text-xs font-medium cursor-pointer transition-colors duration-150 hover:bg-slate-100 dark:hover:bg-slate-700" data-status="UNRELEASED" onclick="App.setTriage(${req.seerrRequestId}, 'UNRELEASED')">
                         <span class="w-2 h-2 rounded-full bg-sky-500"></span>
-                        <span>Waiting Release</span>
+                        <span>Unreleased</span>
                     </button>` : ''}
                     ${req.status !== 'UNAVAILABLE' ? `
                     <button class="triage-option flex items-center gap-2 w-full py-2 px-3 border-none rounded bg-transparent text-slate-700 dark:text-slate-200 text-xs font-medium cursor-pointer transition-colors duration-150 hover:bg-slate-100 dark:hover:bg-slate-700" data-status="UNAVAILABLE" onclick="App.setTriage(${req.seerrRequestId}, 'UNAVAILABLE')">

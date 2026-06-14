@@ -4,17 +4,17 @@ import "time"
 
 // Triage status constants
 const (
-	StatusPending        = "PENDING"
-	StatusWaitingRelease = "WAITING_RELEASE"
-	StatusUnavailable    = "UNAVAILABLE"
-	StatusCompleted      = "COMPLETED"
+	StatusPending     = "PENDING"
+	StatusUnreleased  = "UNRELEASED"
+	StatusUnavailable = "UNAVAILABLE"
+	StatusCompleted   = "COMPLETED"
 )
 
 // AllStatuses returns all valid triage statuses for validation.
 func AllStatuses() []string {
 	return []string{
 		StatusPending,
-		StatusWaitingRelease,
+		StatusUnreleased,
 		StatusUnavailable,
 		StatusCompleted,
 	}

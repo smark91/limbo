@@ -389,9 +389,9 @@ func TestScannerProcessTVRequestPartiallyAvailable(t *testing.T) {
 		t.Fatalf("failed to query entry: %v", err)
 	}
 
-	// Should be WAITING_RELEASE since Season 2 is unreleased
-	if entry.Status != database.StatusWaitingRelease {
-		t.Errorf("expected status to be WAITING_RELEASE, got %s", entry.Status)
+	// Should be UNRELEASED since Season 2 is unreleased
+	if entry.Status != database.StatusUnreleased {
+		t.Errorf("expected status to be UNRELEASED, got %s", entry.Status)
 	}
 
 	if entry.RequestedSeasons != "S1-2" {
@@ -505,8 +505,8 @@ func TestScannerProcessRequestWaitingRelease(t *testing.T) {
 
 	var entry database.TriageEntry
 	db.First(&entry, "seerr_request_id = ?", 100)
-	if entry.Status != database.StatusWaitingRelease {
-		t.Errorf("expected status 'WAITING_RELEASE', got %q", entry.Status)
+	if entry.Status != database.StatusUnreleased {
+		t.Errorf("expected status 'UNRELEASED', got %q", entry.Status)
 	}
 }
 
@@ -611,7 +611,7 @@ func TestScannerWaitingReleaseToPending(t *testing.T) {
 		TmdbID:         500,
 		Title:          "Released Movie",
 		MediaType:      "movie",
-		Status:         database.StatusWaitingRelease,
+		Status:         database.StatusUnreleased,
 		SeerrCreatedAt: now.Add(-24 * time.Hour),
 	}
 	if err := db.Create(&initialEntry).Error; err != nil {
@@ -694,7 +694,7 @@ func TestScannerWaitingReleaseNoDateStaysWaiting(t *testing.T) {
 		TmdbID:         501,
 		Title:          "Unknown Release Date Movie",
 		MediaType:      "movie",
-		Status:         database.StatusWaitingRelease,
+		Status:         database.StatusUnreleased,
 		SeerrCreatedAt: now.Add(-24 * time.Hour),
 	}
 	if err := db.Create(&initialEntry).Error; err != nil {
@@ -748,8 +748,8 @@ func TestScannerWaitingReleaseNoDateStaysWaiting(t *testing.T) {
 		t.Fatalf("failed to query entry: %v", err)
 	}
 
-	if entry.Status != database.StatusWaitingRelease {
-		t.Errorf("expected status to remain 'WAITING_RELEASE' when release date is unknown, got %q", entry.Status)
+	if entry.Status != database.StatusUnreleased {
+		t.Errorf("expected status to remain 'UNRELEASED' when release date is unknown, got %q", entry.Status)
 	}
 }
 
@@ -765,7 +765,7 @@ func TestScannerPastTheatricalStaysWaiting(t *testing.T) {
 		TmdbID:         502,
 		Title:          "Past Theatrical Movie",
 		MediaType:      "movie",
-		Status:         database.StatusWaitingRelease,
+		Status:         database.StatusUnreleased,
 		SeerrCreatedAt: now.Add(-24 * time.Hour),
 	}
 	if err := db.Create(&initialEntry).Error; err != nil {
@@ -819,8 +819,8 @@ func TestScannerPastTheatricalStaysWaiting(t *testing.T) {
 		t.Fatalf("failed to query entry: %v", err)
 	}
 
-	if entry.Status != database.StatusWaitingRelease {
-		t.Errorf("expected status to remain 'WAITING_RELEASE' when release is theatrical fallback, got %q", entry.Status)
+	if entry.Status != database.StatusUnreleased {
+		t.Errorf("expected status to remain 'UNRELEASED' when release is theatrical fallback, got %q", entry.Status)
 	}
 }
 
@@ -835,7 +835,7 @@ func TestScannerActiveDownloadExistingEntry(t *testing.T) {
 		TmdbID:         503,
 		Title:          "Downloading Movie",
 		MediaType:      "movie",
-		Status:         database.StatusWaitingRelease,
+		Status:         database.StatusUnreleased,
 		SeerrCreatedAt: now.Add(-24 * time.Hour),
 	}
 	if err := db.Create(&initialEntry).Error; err != nil {
@@ -918,7 +918,7 @@ func TestScannerOldTheatricalBecomesPending(t *testing.T) {
 		TmdbID:         504,
 		Title:          "Old Theatrical Movie",
 		MediaType:      "movie",
-		Status:         database.StatusWaitingRelease,
+		Status:         database.StatusUnreleased,
 		SeerrCreatedAt: now.Add(-24 * time.Hour),
 	}
 	if err := db.Create(&initialEntry).Error; err != nil {
@@ -987,9 +987,9 @@ func TestNoReleaseDateStatusRouting(t *testing.T) {
 	}
 
 	cases := []testCase{
-		{"In Production → WAITING_RELEASE", "In Production", database.StatusWaitingRelease},
-		{"Post Production → WAITING_RELEASE", "Post Production", database.StatusWaitingRelease},
-		{"Planned → WAITING_RELEASE", "Planned", database.StatusWaitingRelease},
+		{"In Production → UNRELEASED", "In Production", database.StatusUnreleased},
+		{"Post Production → UNRELEASED", "Post Production", database.StatusUnreleased},
+		{"Planned → UNRELEASED", "Planned", database.StatusUnreleased},
 		{"Released → PENDING", "Released", database.StatusPending},
 		{"Empty status → PENDING (safe default)", "", database.StatusPending},
 	}

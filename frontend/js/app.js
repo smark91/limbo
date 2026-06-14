@@ -344,13 +344,13 @@ const App = {
                 // Update badge text and classes
                 const badgeColors = {
                     'PENDING': 'bg-amber-500/10 text-amber-500 border border-amber-500/20',
-                    'WAITING_RELEASE': 'bg-sky-500/10 text-sky-500 border border-sky-500/20',
+                    'UNRELEASED': 'bg-sky-500/10 text-sky-500 border border-sky-500/20',
                     'UNAVAILABLE': 'bg-rose-500/10 text-rose-500 border border-rose-500/20',
                     'COMPLETED': 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20'
                 };
                 const badgeDotColors = {
                     'PENDING': 'bg-amber-500',
-                    'WAITING_RELEASE': 'bg-sky-500',
+                    'UNRELEASED': 'bg-sky-500',
                     'UNAVAILABLE': 'bg-rose-500',
                     'COMPLETED': 'bg-emerald-500'
                 };
@@ -462,7 +462,7 @@ const App = {
         const dateVal = dateInput.value;
         const statuses = [];
         if (document.getElementById('clean-status-pending').checked) statuses.push('PENDING');
-        if (document.getElementById('clean-status-waiting').checked) statuses.push('WAITING_RELEASE');
+        if (document.getElementById('clean-status-waiting').checked) statuses.push('UNRELEASED');
         if (document.getElementById('clean-status-unavailable').checked) statuses.push('UNAVAILABLE');
 
         if (statuses.length === 0) {
@@ -780,7 +780,7 @@ const App = {
         if (status === null) {
             this.state.filters.status = 'PENDING'; // Default status is Pending when missing
         } else {
-            const validStatuses = ['PENDING', 'WAITING_RELEASE', 'UNAVAILABLE', 'COMPLETED'];
+            const validStatuses = ['PENDING', 'UNRELEASED', 'UNAVAILABLE', 'COMPLETED'];
             if (validStatuses.includes(status.toUpperCase())) {
                 this.state.filters.status = status.toUpperCase();
             } else {

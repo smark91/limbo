@@ -229,7 +229,7 @@ func TestRefreshCacheHandler(t *testing.T) {
 			TmdbID:         67890,
 			Title:          "Old Title TV",
 			MediaType:      "tv",
-			Status:         database.StatusWaitingRelease,
+			Status:         database.StatusUnreleased,
 		},
 	}
 
@@ -339,7 +339,7 @@ func TestGetCacheInfoHandler(t *testing.T) {
 			SeerrRequestID: 302,
 			Title:          "Movie 2",
 			MediaType:      "movie",
-			Status:         database.StatusWaitingRelease,
+			Status:         database.StatusUnreleased,
 		},
 		{
 			SeerrRequestID: 303,

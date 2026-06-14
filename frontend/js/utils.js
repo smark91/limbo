@@ -59,7 +59,7 @@ function releaseIcon(source) {
 function statusLabel(status) {
     const labels = {
         'PENDING': 'Pending',
-        'WAITING_RELEASE': 'Waiting Release',
+        'UNRELEASED': 'Unreleased',
         'UNAVAILABLE': 'Unavailable',
         'COMPLETED': 'Completed'
     };

@@ -14,13 +14,13 @@ import (
 var Version = "dev"
 
 type statsResponse struct {
-	Pending        int64     `json:"pending"`
-	Unavailable    int64     `json:"unavailable"`
-	WaitingRelease int64     `json:"waitingRelease"`
-	Completed      int64     `json:"completed"`
-	Total          int64     `json:"total"`
-	LastScan       time.Time `json:"lastScan"`
-	Version        string    `json:"version"`
+	Pending     int64     `json:"pending"`
+	Unavailable int64     `json:"unavailable"`
+	Unreleased  int64     `json:"unreleased"`
+	Completed   int64     `json:"completed"`
+	Total       int64     `json:"total"`
+	LastScan    time.Time `json:"lastScan"`
+	Version     string    `json:"version"`
 }
 
 // handleStats returns aggregated triage counters by status.
@@ -41,8 +41,8 @@ func handleStats(db *gorm.DB, scan *scanner.Scanner) http.HandlerFunc {
 			return
 		}
 
-		if err := db.WithContext(ctx).Model(&database.TriageEntry{}).Where("status = ?", database.StatusWaitingRelease).Count(&stats.WaitingRelease).Error; err != nil {
-			slog.ErrorContext(ctx, "Failed to count waiting release status", slog.Any("error", err))
+		if err := db.WithContext(ctx).Model(&database.TriageEntry{}).Where("status = ?", database.StatusUnreleased).Count(&stats.Unreleased).Error; err != nil {
+			slog.ErrorContext(ctx, "Failed to count unreleased status", slog.Any("error", err))
 			http.Error(w, "Database error", http.StatusInternalServerError)
 			return
 		}

@@ -322,7 +322,7 @@ func TestTriageEndpoints(t *testing.T) {
 			})
 			reqBody, _ := json.Marshal(map[string]interface{}{
 				"seerrRequestId": 555,
-				"status":         "WAITING_RELEASE",
+				"status":         "UNRELEASED",
 			})
 			reqPost, _ := http.NewRequest("POST", "/api/triage", bytes.NewBuffer(reqBody))
 			rrPost := httptest.NewRecorder()
@@ -346,7 +346,7 @@ func TestTriageEndpoints(t *testing.T) {
 			})
 			reqBody, _ := json.Marshal(map[string]interface{}{
 				"seerrRequestId": 666,
-				"status":         "WAITING_RELEASE",
+				"status":         "UNRELEASED",
 			})
 			reqPost, _ := http.NewRequest("POST", "/api/triage", bytes.NewBuffer(reqBody))
 			rrPost := httptest.NewRecorder()

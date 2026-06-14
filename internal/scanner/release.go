@@ -207,7 +207,7 @@ func EvaluateTVRelease(show *seerr.TVDetail, requestedSeasons []int) ReleaseInfo
 
 	// 5. No dates found at all — return Unknown with status for downstream decision-making.
 	// If requested seasons have not premiered, override MediaStatus to "Upcoming" so downstream
-	// logic (IsUnreleased) treats it as WAITING_RELEASE.
+	// logic (IsUnreleased) treats it as UNRELEASED.
 	mediaStatus := show.Status
 	if len(requestedSeasons) > 0 && !requestedSeasonPremiered {
 		mediaStatus = "Upcoming"
@@ -237,7 +237,7 @@ func (r ReleaseInfo) IsSureReleased() bool {
 
 // IsUnreleased returns true when there is no known release date but the media
 // status signals it hasn't been released yet. This is used as a fallback to
-// decide WAITING_RELEASE vs PENDING when Date is nil.
+// decide UNRELEASED vs PENDING when Date is nil.
 //
 // Movies: anything other than "Released" is considered unreleased.
 // TV: only "Upcoming" is considered unreleased (other statuses like
@@ -255,7 +255,7 @@ func (r ReleaseInfo) IsUnreleased() bool {
 		// TV show has aired; treat as released.
 		return false
 	case "":
-		// No status information — assume released to avoid keeping in WAITING_RELEASE forever.
+		// No status information — assume released to avoid keeping in UNRELEASED forever.
 		return false
 	default:
 		// "In Production", "Post Production", "Planned", "Upcoming", etc.

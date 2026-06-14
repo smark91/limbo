@@ -23,7 +23,7 @@ func TestStatsHandler(t *testing.T) {
 	db.Create(&database.TriageEntry{SeerrRequestID: 1, Status: database.StatusPending})
 	db.Create(&database.TriageEntry{SeerrRequestID: 2, Status: database.StatusPending})
 	db.Create(&database.TriageEntry{SeerrRequestID: 3, Status: database.StatusUnavailable})
-	db.Create(&database.TriageEntry{SeerrRequestID: 4, Status: database.StatusWaitingRelease})
+	db.Create(&database.TriageEntry{SeerrRequestID: 4, Status: database.StatusUnreleased})
 	db.Create(&database.TriageEntry{SeerrRequestID: 5, Status: database.StatusCompleted})
 
 	cfg := &config.Config{}
@@ -49,8 +49,8 @@ func TestStatsHandler(t *testing.T) {
 		if resp.Unavailable != 1 {
 			t.Errorf("expected 1 unavailable, got %d", resp.Unavailable)
 		}
-		if resp.WaitingRelease != 1 {
-			t.Errorf("expected 1 waiting release, got %d", resp.WaitingRelease)
+		if resp.Unreleased != 1 {
+			t.Errorf("expected 1 unreleased, got %d", resp.Unreleased)
 		}
 		if resp.Completed != 1 {
 			t.Errorf("expected 1 completed, got %d", resp.Completed)

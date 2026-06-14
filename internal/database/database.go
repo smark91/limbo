@@ -71,9 +71,46 @@ func Init(cfg *config.Config) (*gorm.DB, error) {
 		return nil, fmt.Errorf("failed to auto-migrate: %w", err)
 	}
 
-	// Migrate status 'NOT_AVAILABLE' to 'UNAVAILABLE' for backward compatibility
-	if err := db.Model(&TriageEntry{}).Where("status = ?", "NOT_AVAILABLE").Update("status", "UNAVAILABLE").Error; err != nil {
-		slog.Warn("Failed to migrate NOT_AVAILABLE statuses to UNAVAILABLE", slog.Any("error", err))
+	// Migrate status 'NOT_AVAILABLE' to 'UNAVAILABLE' for backward compatibility (run once)
+	var metaUnavailable SystemMetadata
+	if err := db.Where("key = ?", "migration_not_available_to_unavailable").First(&metaUnavailable).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			slog.Info("Running database migration: NOT_AVAILABLE to UNAVAILABLE...")
+			if err := db.Model(&TriageEntry{}).Where("status = ?", "NOT_AVAILABLE").Update("status", "UNAVAILABLE").Error; err != nil {
+				slog.Error("Failed to migrate NOT_AVAILABLE statuses to UNAVAILABLE", slog.Any("error", err))
+			} else {
+				if err := db.Create(&SystemMetadata{
+					Key:       "migration_not_available_to_unavailable",
+					Value:     "done",
+					UpdatedAt: time.Now(),
+				}).Error; err != nil {
+					slog.Warn("Failed to record migration metadata", slog.Any("error", err))
+				}
+			}
+		} else {
+			slog.Warn("Failed to check migration metadata", slog.Any("error", err))
+		}
+	}
+
+	// Migrate status 'WAITING_RELEASE' to 'UNRELEASED' for backward compatibility (run once)
+	var meta SystemMetadata
+	if err := db.Where("key = ?", "migration_waiting_release_to_unreleased").First(&meta).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			slog.Info("Running database migration: WAITING_RELEASE to UNRELEASED...")
+			if err := db.Model(&TriageEntry{}).Where("status = ?", "WAITING_RELEASE").Update("status", "UNRELEASED").Error; err != nil {
+				slog.Error("Failed to migrate WAITING_RELEASE statuses to UNRELEASED", slog.Any("error", err))
+			} else {
+				if err := db.Create(&SystemMetadata{
+					Key:       "migration_waiting_release_to_unreleased",
+					Value:     "done",
+					UpdatedAt: time.Now(),
+				}).Error; err != nil {
+					slog.Warn("Failed to record migration metadata", slog.Any("error", err))
+				}
+			}
+		} else {
+			slog.Warn("Failed to check migration metadata", slog.Any("error", err))
+		}
 	}
 
 	slog.Info("Connected and migrated database", slog.String("driver", cfg.DBDriver))

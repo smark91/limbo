@@ -1,4 +1,4 @@
-const CACHE_NAME = 'limbo-cache-v78';
+const CACHE_NAME = 'limbo-cache-v81';
 const ASSETS = [
   '/',
   '/index.html',
