@@ -118,6 +118,16 @@ func (s *Scanner) scan(ctx context.Context) error {
 		for _, entry := range emptyTVEntries {
 			seerrReq, err := s.seerr.GetRequest(ctx, entry.SeerrRequestID)
 			if err != nil {
+				if strings.Contains(err.Error(), "returned 404") {
+					slog.WarnContext(ctx, "Request no longer exists in Seerr during backfill, setting fallback seasons", slog.Int("requestId", entry.SeerrRequestID))
+					fallbackUpdates := map[string]interface{}{
+						"requested_seasons": "N/A",
+					}
+					if err := s.db.WithContext(ctx).Model(&entry).Updates(fallbackUpdates).Error; err != nil {
+						slog.ErrorContext(ctx, "Failed to update fallback requested seasons during backfill", slog.Int("requestId", entry.SeerrRequestID), slog.Any("error", err))
+					}
+					continue
+				}
 				slog.ErrorContext(ctx, "Failed to fetch request details for backfill", slog.Int("requestId", entry.SeerrRequestID), slog.Any("error", err))
 				continue
 			}

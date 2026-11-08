@@ -77,7 +77,7 @@ func Load() (*Config, error) {
 		// App
 		ReleaseCountry: envOrDefault("RELEASE_COUNTRY", "US"),
 		ScanInterval:   envOrDuration("SCAN_INTERVAL_MINUTES", 10),
-		AlertDelay:     envOrDuration("ALERT_DELAY_MINUTES", 10),
+		AlertDelay:     envOrDuration("ALERT_DELAY_MINUTES", 30),
 		AlertMaxAge:    envOrDuration("ALERT_MAX_AGE_MINUTES", 1440),
 		Port:           envOrDefault("LIMBO_PORT", "3000"),
 

@@ -1058,3 +1058,68 @@ func TestNoReleaseDateStatusRouting(t *testing.T) {
 		})
 	}
 }
+
+func TestBackfillRequestedSeasons_404Fallback(t *testing.T) {
+	db := setupTestDB(t)
+
+	// Seed database with a legacy TV entry having empty requested_seasons
+	initialEntry := database.TriageEntry{
+		SeerrRequestID:   1044,
+		MediaID:          500,
+		TmdbID:           600,
+		Title:            "Euphoria",
+		MediaType:        "tv",
+		Status:           database.StatusCompleted,
+		RequestedSeasons: "",
+		SeerrCreatedAt:   time.Now().Add(-48 * time.Hour),
+	}
+	if err := db.Create(&initialEntry).Error; err != nil {
+		t.Fatalf("failed to seed database: %v", err)
+	}
+
+	// Mock Seerr API Server: approved requests empty, request 1044 returns 404
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.URL.Path == "/api/v1/request" {
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
+				"pageInfo": map[string]interface{}{"pages": 1, "pageSize": 10, "results": 0, "page": 1},
+				"results":  []interface{}{},
+			})
+			return
+		}
+		if r.URL.Path == "/api/v1/request/1044" {
+			w.WriteHeader(http.StatusNotFound)
+			_, _ = w.Write([]byte(`{"message":"Request not found."}`))
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer server.Close()
+
+	cfg := &config.Config{
+		SeerrURL:     server.URL,
+		ScanInterval: 10 * time.Minute,
+		AlertDelay:   10 * time.Minute,
+		AlertMaxAge:  24 * time.Hour,
+	}
+	seerrClient := seerr.NewClient(cfg)
+	s := &Scanner{
+		cfg:   cfg,
+		db:    db,
+		seerr: seerrClient,
+	}
+
+	// Execute scan cycle
+	if err := s.scan(context.Background()); err != nil {
+		t.Fatalf("scan returned error: %v", err)
+	}
+
+	// Verify the entry was updated to "N/A"
+	var updatedEntry database.TriageEntry
+	if err := db.First(&updatedEntry, "seerr_request_id = ?", 1044).Error; err != nil {
+		t.Fatalf("failed to query entry: %v", err)
+	}
+	if updatedEntry.RequestedSeasons != "N/A" {
+		t.Errorf("expected requested_seasons to be 'N/A', got %q", updatedEntry.RequestedSeasons)
+	}
+}

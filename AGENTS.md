@@ -73,7 +73,7 @@ All configuration is parsed from environment variables inside `internal/config`.
 | `DISCORD_WEBHOOK_URL`| Destination for webhook embeds | None | No (Omit to disable notifications) |
 | `RELEASE_COUNTRY` | 2-letter ISO country code for release priority | `US` | No |
 | `SCAN_INTERVAL_MINUTES` | Frequency of background Seerr syncs | `10` | No |
-| `ALERT_DELAY_MINUTES` | Minimum request age before Discord notification (gives automation time to download first) | `10` | No |
+| `ALERT_DELAY_MINUTES` | Minimum request age before Discord notification (gives automation time to download and sync first) | `30` | No |
 | `ALERT_MAX_AGE_MINUTES` | Maximum request age to qualify for notification (prevents spamming old requests) | `1440` | No |
 | `LIMBO_PORT` | Port for the HTTP web server | `3000` | No |
 | `LOG_LEVEL` | Log verbosity (`debug`, `info`, `warn`, `error`) | `info` | No |
